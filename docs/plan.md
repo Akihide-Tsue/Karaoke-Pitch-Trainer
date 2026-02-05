@@ -5,6 +5,7 @@
 **PoC は Web のみ**完成させる。参考: [midikaraoke.app](http://midikaraoke.app/)（曲選択 → 曲設定 → 歌唱開始・一時停止の流れ）。Capacitor・ネイティブビルド・iOS Photos 保存・テストは拡張で対応する。
 
 **実装の前提（AI に任せる際の注意）**  
+
 - 正解メロディは **MIDI ファイルのみ**から得る。  
 - **歌詞**は **lyrics.json** から取得する。  
 - 練習画面 URL は **/practice のみ**（1 曲固定）。サンプル曲は **BNM_MIDI.mid**（`public/BNM_MIDI.mid`）。  
@@ -40,7 +41,6 @@
 ## 1. 概要・スコープ
 
 ### 1.1 PoC で実装する機能
-
 
 | # | 機能               | 概要                                                                                                               |
 | --- | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -126,6 +126,7 @@
 まとめ: **ガイド用 MIDI** には**メロディのノート（音程＋時間）**のみ使う。再生には使わない（そのまま再生するとサイン波等になる）。アプリはノートで正解を表示・採点する。**歌詞は lyrics.json**、**オケはオケ音源（Brand_New_Music_inst.wav）**で別提供。ガイドボーカルを鳴らす場合は**ガイドボーカル音源**を別ファイルで用意する（PoC では省略可）。
 
 **実装の流れ（一意に決める）**  
+
 1. MIDI を `public/songs/<songId>/BNM_MIDI.mid` 等から読み込む  
 2. `@tonejs/midi` でパースし、メロディトラックのノートを **MelodyData**（**MelodyNote[]**）に変換する  
 3. 歌詞は **lyrics.json**（`app/constants/songs/<songId>/lyrics.json`、形式は `{ time, lyric }[]`、time は秒）から取得し、**LyricEntry[]**（timeMs, text）に変換する  
@@ -164,10 +165,12 @@ interface LyricEntry {
 - **JSON の場所**: `app/constants/songs/<songId>/lyrics.json`。曲ごとに 1 ファイル。constants フォルダに格納する。
 - **JSON の型（外部フォーマット）**: `{ time: number; lyric: string }[]`（`time` は曲頭からの秒、小数点可）。
 - **変換例**:
+
 ```ts
 // lyrics.json の 1 要素 → LyricEntry
 { time: 16.6, lyric: "朝焼けの街に置いてかれて" }  →  { timeMs: 16600, text: "朝焼けの街に置いてかれて" }
 ```
+
 - 歌詞が無い曲では lyrics.json を用意せず、アプリ側で歌詞表示を非表示とする。
 
 Unit 区間で使うときは `note.startMs < unitEndMs && note.endMs > unitStartMs` でフィルタする。歌詞は `timeMs` が現在再生位置に達したら表示し、次の歌詞に切り替える（または一定時間表示して消す等、簡易でよい）。
@@ -207,7 +210,7 @@ interface LastSavedRecording {
 - **IndexedDB**: Dexie のストア名（例: `recordings`）およびキー（例: `'last'`）、またはストア名 `lastSavedRecording`。
 - **録音ファイル名**（PoC では IndexedDB に Blob 保存のため不要。Filesystem は拡張で使用）: Web は `last_recording.webm`。
 - **ピッチ間隔**: `PITCH_INTERVAL_MS = 50`
-- **曲・Unit（PoC 固定）**: サンプル曲は **BNM_MIDI.mid** のみ。`songId = 'count-on-me'`, `unitId = 'unit-1'`。MIDI は `public/BNM_MIDI.mid`、**lyrics.json** は `app/constants/lyrics.json`、オケ音源は **Brand_New_Music_inst.wav** を `public/Brand_New_Music_inst.wav` に配置。**unitStartMs** は「歌唱開始」押下時の曲内の再生位置（ms）、**unitEndMs** は停止した瞬間の曲内の再生位置（ms）を保存する（曲全体なら unitEndMs = totalDurationMs、途中停止時はその時点の再生位置）。melody.json は不要。歌詞は MIDI には不要（lyrics.json のみ）。
+- **曲・Unit（PoC 固定）**: サンプル曲は **BNM_MIDI.mid** のみ。`songId = 'brand-new-music'`, `unitId = 'unit-1'`。MIDI は `public/BNM_MIDI.mid`、**lyrics.json** は `app/constants/lyrics.json`、オケ音源は **Brand_New_Music_inst.wav** を `public/Brand_New_Music_inst.wav` に配置。**unitStartMs** は「歌唱開始」押下時の曲内の再生位置（ms）、**unitEndMs** は停止した瞬間の曲内の再生位置（ms）を保存する（曲全体なら unitEndMs = totalDurationMs、途中停止時はその時点の再生位置）。melody.json は不要。歌詞は MIDI には不要（lyrics.json のみ）。
 
 ### 4.5 拡張: 歌唱区間（セグメント）— フル曲の一部だけ歌唱
 
@@ -233,7 +236,6 @@ PoC では 1 曲を曲頭から歌唱する想定だが、拡張で「フル MID
 - **再生画面**: `/playback` 等。ホームは `/`。直近 1 件がないときは**「まだ録音がありません」**を表示し、「練習する」で練習画面へ誘導する（[5.4](#54-再生画面の-ui) 参照）。
 
 ### 5.1 画面一覧
-
 
 | 画面         | 役割                                                                                                                                                                      |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -324,7 +326,7 @@ function computeScore(
 ### Phase 1: 土台
 
 1. **プロジェクト作成**: `pnpm create vite@latest <名前> --template react-ts`
-2. **パッケージ**: `pnpm add @tanstack/react-router @tanstack/router-vite-plugin pitchfinder jotai dexie @mui/material @emotion/react @emotion/styled @tonejs/midi`。**伴奏はカラオケ音源の MP3** を HTML5 Audio または Tone.js の Player で再生（`tone` は MP3 再生に使う場合のみ追加）。テスト（Vitest/Playwright）は PoC に含めない。Web Audio API は標準で利用。
+2. **パッケージ**: `pnpm add pitchfinder jotai dexie @mui/material @emotion/react @emotion/styled @tonejs/midi`、`pnpm add -D @biomejs/biome`。**伴奏はカラオケ音源の WAV** を HTML5 Audio または Tone.js の Player で再生（`tone` は再生に使う場合のみ追加）。Lint/フォーマットに **Biome** を使用。テスト（Vitest/Playwright）は PoC に含めない。Web Audio API は標準で利用。
 3. **ルーティング**: **TanStack Router** の file-based を導入（`@tanstack/router-vite-plugin` で `src/routes/` をルートに）。
 4. **状態管理**: **Jotai** で練習状態・再生位置・録音メタデータ等を管理。
 5. **UI**: **MUI**（ThemeProvider, CssBaseline）と必要コンポーネントを配置。
@@ -334,25 +336,25 @@ function computeScore(
 
 ### Phase 2: ホーム・練習画面（ピッチなし）
 
-9. **ホーム**: MUI でレイアウト。曲選択（1 曲固定可）・曲設定（任意）。「練習する」で TanStack Router の練習画面へ遷移。
-10. **練習画面の骨組み**: **「歌唱開始」で伴奏（カラオケ MP3）と録音・ピッチ検出を同時開始**（pitchData の 0ms は歌唱開始押下時）。音程バーは**五線譜風の簡易描画**（曲の最低〜最高ノートが写る範囲。調号・拍子は省略）。**歌詞**を **lyrics.json** から読み込み、再生位置に同期して表示。Unit 区間の曲の音程バー、時間軸・現在位置の縦線。Jotai で再生位置・曲データを保持。
+1. **ホーム**: MUI でレイアウト。曲選択（1 曲固定可）・曲設定（任意）。「練習する」で TanStack Router の練習画面へ遷移。
+2. **練習画面の骨組み**: **「歌唱開始」で伴奏（カラオケ MP3）と録音・ピッチ検出を同時開始**（pitchData の 0ms は歌唱開始押下時）。音程バーは**五線譜風の簡易描画**（曲の最低〜最高ノートが写る範囲。調号・拍子は省略）。**歌詞**を **lyrics.json** から読み込み、再生位置に同期して表示。Unit 区間の曲の音程バー、時間軸・現在位置の縦線。Jotai で再生位置・曲データを保持。
 
 ### Phase 3: ピッチ検出・歌唱の音程バー
 
-11. **ピッチ検出**: Web Audio API + pitchfinder で 50ms 間隔で MIDI 配列に push。Jotai で pitchData を保持。
-12. **歌唱の音程バー**を練習画面に追加（リアルタイム描画、一致で色分け。MUI または Emotion でスタイル）。
-13. **録音**: MediaRecorder で歌唱中に録音し、歌唱終了時に停止。
-14. **停止**: 伴奏・録音・ピッチ検出を止め、**歌唱終了**とする（停止＝終了。一時停止中は録音も止める。再開は PoC で省略可）。
+1. **ピッチ検出**: Web Audio API + pitchfinder で 50ms 間隔で MIDI 配列に push。Jotai で pitchData を保持。
+2. **歌唱の音程バー**を練習画面に追加（リアルタイム描画、一致で色分け。MUI または Emotion でスタイル）。
+3. **録音**: MediaRecorder で歌唱中に録音し、歌唱終了時に停止。
+4. **停止**: 伴奏・録音・ピッチ検出を止め、**歌唱終了**とする（停止＝終了。一時停止中は録音も止める。再開は PoC で省略可）。
 
 ### Phase 4: 結果表示・保存・再生画面
 
-15. **音程一致率**: 歌唱終了時に `computeScore` で算出し、「音程一致率 XX%」＋「保存する？」「保存しない」を表示（MUI のダイアログやボタン利用可）。
-16. **保存**: 「保存する」なら録音 Blob とメタデータ（pitchData, score 含む）を **Dexie（IndexedDB）** に保存（直近 1 件で上書き）。「今すぐ再生」を表示。
-17. **再生画面**: IndexedDB から直近 1 件を読み込む。**直近 1 件がない**ときは**「まだ録音がありません」**を表示し、**「練習する」**で練習画面へ誘導。あるときは**伴奏（カラオケ MP3）＋歌声**を同時に再生し、曲の音程バー＋歌唱の音程バー＋**歌詞**（再生位置に同期）＋「練習に戻る」を表示する。
+1. **音程一致率**: 歌唱終了時に `computeScore` で算出し、「音程一致率 XX%」＋「保存する？」「保存しない」を表示（MUI のダイアログやボタン利用可）。
+2. **保存**: 「保存する」なら録音 Blob とメタデータ（pitchData, score 含む）を **Dexie（IndexedDB）** に保存（直近 1 件で上書き）。「今すぐ再生」を表示。
+3. **再生画面**: IndexedDB から直近 1 件を読み込む。**直近 1 件がない**ときは**「まだ録音がありません」**を表示し、**「練習する」**で練習画面へ誘導。あるときは**伴奏（カラオケ MP3）＋歌声**を同時に再生し、曲の音程バー＋歌唱の音程バー＋**歌詞**（再生位置に同期）＋「練習に戻る」を表示する。
 
 ### Phase 5: 仕上げ（Web のみ）
 
-18. **エラー処理**: PoC では **alert()** で簡易的に実装。マイク拒否・IndexedDB 不可・保存失敗・メタデータ読み込み失敗・MIDI 読み込み失敗は **alert** でメッセージを表示。マイク拒否時は alert 内に「設定を開く」などの導線を 1 つ書く（リンクや文言で誘導）。
+1. **エラー処理**: PoC では **alert()** で簡易的に実装。マイク拒否・IndexedDB 不可・保存失敗・メタデータ読み込み失敗・MIDI 読み込み失敗は **alert** でメッセージを表示。マイク拒否時は alert 内に「設定を開く」などの導線を 1 つ書く（リンクや文言で誘導）。
 
 **PoC に含めない（拡張で対応）**: Capacitor 導入、iOS で Photos に保存、Vitest・Playwright によるテスト。PoC は **Web のみ**完成させる。
 
@@ -492,7 +494,7 @@ MIDI は DTM 用音源で再生する想定のためそのまま再生すると�
 
 | 項目 | ルール |
 |------|--------|
-| フォルダ（音源・MIDI） | `public/songs/<songId>/`（songId は kebab-case。例: `count-on-me`） |
+| フォルダ（音源・MIDI） | `public/songs/<songId>/`（songId は kebab-case。例: `brand-new-music`） |
 | フォルダ（歌詞） | `app/constants/songs/<songId>/`。lyrics.json は constants に格納する。 |
 | ガイド用 MIDI | 1 曲 1 ファイル。例: `BNM_MIDI.mid` または `<songId>.mid`。ノートデータのみ使用、再生には使わない。 |
 | オケ音源 | `Brand_New_Music_inst.wav`。曲頭がガイド用 MIDI と一致。 |
