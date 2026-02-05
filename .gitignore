@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.react-router/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# pnpm
+.pnpm-store/
+.pnpm-debug.log
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing (将来的な Vitest/Playwright 用)
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
