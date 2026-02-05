@@ -13,6 +13,12 @@
 - Jotai（状態管理）、MUI、Dexie（IndexedDB）、pitchfinder、@tonejs/midi
 - Biome（Lint / フォーマット）
 
+## 推奨 MCP
+
+- **Serena**: シンボル検索・参照調査・ファイル構造把握に利用
+- **context7**: ライブラリの最新ドキュメント参照（MUI, Dexie, pitchfinder 等）
+- **cursor-ide-browser**: ブラウザでの動作確認・デバッグ
+
 ## ルーティング
 
 - `/` … ホーム

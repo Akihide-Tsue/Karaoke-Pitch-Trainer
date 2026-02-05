@@ -2,16 +2,16 @@
 
 ## Phase 1: 土台
 
-- [ ] **1-1** ルーティング: practice, playback ルートを追加（React Router 7）
-- [ ] **1-2** 状態管理: Jotai で練習状態・再生位置・録音メタデータ等の atoms を定義
-- [ ] **1-3** UI: MUI の ThemeProvider, CssBaseline を root に配置
-- [ ] **1-4** 保存: `lib/db.ts` で Dexie IndexedDB を定義
-- [ ] **1-5** 保存: `lib/storage.ts` で getLastSavedRecording / setLastSavedRecording を実装（IndexedDB 不可時はエラー表示のみ）
+- [x] **1-1** ルーティング: practice, playback ルートを追加（React Router 7）
+- [x] **1-2** 状態管理: Jotai で練習状態・再生位置・録音メタデータ等の atoms を定義
+- [x] **1-3** UI: MUI の ThemeProvider, CssBaseline を root に配置
+- [x] **1-4** 保存: `lib/db.ts` で Dexie IndexedDB を定義
+- [x] **1-5** 保存: `lib/storage.ts` で getLastSavedRecording / setLastSavedRecording を実装（IndexedDB 不可時はエラー表示のみ）
 - [ ] **1-6** サンプル曲: `public/BNM_MIDI.mid`, `public/Brand_New_Music_inst.wav` を確認。lyrics.json は `app/constants/songs/brand-new-music/lyrics.json` に配置済み
-- [ ] **1-7** 型・ユーティリティ: `lib/melody.ts`（MelodyNote, MelodyData, LyricEntry, getTargetPitchAtTime）
-- [ ] **1-8** 型・ユーティリティ: `lib/pitch.ts`（frequencyToMidi）
-- [ ] **1-9** 型・ユーティリティ: `lib/midi.ts`（@tonejs/midi で MIDI パース → MelodyData）
-- [ ] **1-10** 型・ユーティリティ: `lib/lyrics.ts`（lyrics.json 読み込み → LyricEntry[]）
+- [x] **1-7** 型・ユーティリティ: `lib/melody.ts`（MelodyNote, MelodyData, LyricEntry, getTargetPitchAtTime）
+- [x] **1-8** 型・ユーティリティ: `lib/pitch.ts`（frequencyToMidi）
+- [x] **1-9** 型・ユーティリティ: `lib/midi.ts`（@tonejs/midi で MIDI パース → MelodyData）
+- [x] **1-10** 型・ユーティリティ: `lib/lyrics.ts`（lyrics.json 読み込み → LyricEntry[]）
 
 ## Phase 2: ホーム・練習画面（ピッチなし）
 
