@@ -22,10 +22,10 @@
 
 ## Phase 3: ピッチ検出・歌唱の音程バー
 
-- [ ] **3-1** ピッチ検出: Web Audio API + pitchfinder で 50ms 間隔で MIDI 配列に push、Jotai で pitchData を保持
-- [ ] **3-2** 歌唱の音程バー: 練習画面にリアルタイム描画、一致で色分け（MUI/Emotion）
-- [ ] **3-3** 録音: MediaRecorder で歌唱中に録音、歌唱終了時に停止
-- [ ] **3-4** 停止: 伴奏・録音・ピッチ検出を止め、歌唱終了とする
+- [x] **3-1** ピッチ検出: Web Audio API + pitchfinder で 50ms 間隔で MIDI 配列に push、Jotai で pitchData を保持
+- [x] **3-2** 歌唱の音程バー: 練習画面にリアルタイム描画、一致で色分け（MUI/Emotion）
+- [x] **3-3** 録音: MediaRecorder で歌唱中に録音、歌唱終了時に停止
+- [x] **3-4** 停止: 伴奏・録音・ピッチ検出を止め、歌唱終了とする
 
 ## Phase 4: 結果表示・保存・再生画面
 

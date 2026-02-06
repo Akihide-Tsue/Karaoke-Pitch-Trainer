@@ -12,7 +12,10 @@ async function getMidiClass(): Promise<{
       notes: Array<{ time: number; duration: number; midi: number }>
     }>
     duration: number
-    header?: { tempos?: Array<{ bpm: number }> }
+    header?: {
+      tempos?: Array<{ bpm: number }>
+      keySignatures?: Array<{ key: string; scale: string }>
+    }
   }>
 }> {
   const mod = await import("@tonejs/midi")
@@ -32,7 +35,10 @@ async function getMidiClass(): Promise<{
         notes: Array<{ time: number; duration: number; midi: number }>
       }>
       duration: number
-      header?: { tempos?: Array<{ bpm: number }> }
+      header?: {
+        tempos?: Array<{ bpm: number }>
+        keySignatures?: Array<{ key: string; scale: string }>
+      }
     }>
   }
 }
@@ -73,8 +79,14 @@ export async function parseMidiToMelodyData(
   )
 
   const totalDurationMs = midi.duration * 1000
-  const bpm =
-    midi.header?.tempos?.[0]?.bpm ?? undefined
+  const bpm = midi.header?.tempos?.[0]?.bpm ?? undefined
+  const keySig = midi.header?.keySignatures?.[0]
+  const key =
+    keySig != null
+      ? keySig.scale === "minor"
+        ? `${keySig.key}m`
+        : keySig.key
+      : undefined
 
   return {
     songId,
@@ -82,5 +94,6 @@ export async function parseMidiToMelodyData(
     trackName: track.name,
     notes,
     bpm,
+    key,
   }
 }
