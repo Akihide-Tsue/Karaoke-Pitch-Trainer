@@ -224,7 +224,8 @@ const PitchBar = ({
             width={Math.max(2, scaleX(n.endMs) - scaleX(n.startMs))}
             height={12}
             fill={PITCH_NOTE}
-            rx={1}
+            rx={4}
+            ry={4}
           />
         ))}
         {/* 現在位置の縦線 */}
