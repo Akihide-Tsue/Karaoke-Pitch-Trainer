@@ -7,6 +7,13 @@ import { useAtomValue, useSetAtom } from "jotai"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router"
 import {
+  PITCH_BAR_LINE,
+  PITCH_C_LINE,
+  PITCH_GRID_LINE,
+  PITCH_NOTE,
+  PITCH_POSITION_LINE,
+} from "~/constants/colors"
+import {
   INST_AUDIO_URL,
   MIDI_URL,
   SONG_ID,
@@ -127,12 +134,12 @@ const PitchBar = ({
     maxPitchDisplay = maxPitch + (maxDisplaySemitones - melodySpan - pad)
   }
   maxPitchDisplay += OCTAVE_MARGIN_ABOVE * 12
+  maxPitchDisplay -= 12
   minPitchDisplay += 24
   const pitchRange = maxPitchDisplay - minPitchDisplay + 1
-  const DISPLAY_SCALE = 1
-  const PIXELS_PER_SEMITONE = 8 * DISPLAY_SCALE
-  const padding = 8 * DISPLAY_SCALE
-  const w = 1000 * DISPLAY_SCALE
+  const PIXELS_PER_SEMITONE = 20
+  const padding = 8
+  const w = 1000
   const drawHeight = pitchRange * PIXELS_PER_SEMITONE
   const totalHeight = drawHeight + 2 * padding
   const scaleX = (ms: number) =>
@@ -179,7 +186,7 @@ const PitchBar = ({
             x2={w}
             y1={l.y}
             y2={l.y}
-            stroke={l.pitch % 12 === 0 ? "#8b7355" : "#444"}
+            stroke={l.pitch % 12 === 0 ? PITCH_C_LINE : PITCH_GRID_LINE}
             strokeWidth={l.pitch % 12 === 0 ? 1.5 : 1}
           />
         ))}
@@ -201,9 +208,9 @@ const PitchBar = ({
                 x2={x}
                 y1={padding}
                 y2={totalHeight - padding}
-                stroke="#666"
+                stroke={PITCH_BAR_LINE}
                 strokeWidth={1}
-                opacity={0.8}
+                opacity={1}
               />
             )
           })
@@ -213,10 +220,10 @@ const PitchBar = ({
           <rect
             key={`note-${n.startMs}-${n.pitch}-${i}`}
             x={scaleX(n.startMs)}
-            y={scaleY(n.pitch) - 2}
+            y={scaleY(n.pitch) - 6}
             width={Math.max(2, scaleX(n.endMs) - scaleX(n.startMs))}
-            height={4}
-            fill="#64b5f6"
+            height={12}
+            fill={PITCH_NOTE}
             rx={1}
           />
         ))}
@@ -226,7 +233,7 @@ const PitchBar = ({
           x2={positionX}
           y1={0}
           y2={totalHeight}
-          stroke="#d32f2f"
+          stroke={PITCH_POSITION_LINE}
           strokeWidth={2}
           strokeDasharray="4 2"
         />
@@ -426,9 +433,11 @@ const Practice = () => {
     return (
       <Container maxWidth="md" sx={{ py: 3 }}>
         <Typography color="error">{loadError}</Typography>
-        <Button component={Link} to="/" sx={{ mt: 2 }}>
-          ホームへ
-        </Button>
+        <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+          <Button component={Link} to="/" sx={{ fontWeight: "bold" }}>
+            ホームへ
+          </Button>
+        </Box>
       </Container>
     )
   }
@@ -445,11 +454,7 @@ const Practice = () => {
       <audio ref={instRef} src={INST_AUDIO_URL} aria-label="伴奏（オケ）">
         <track kind="captions" />
       </audio>
-      <audio
-        ref={vocalRef}
-        src={VOCAL_AUDIO_URL}
-        aria-label="ガイドボーカル（歌あり）"
-      >
+      <audio ref={vocalRef} src={VOCAL_AUDIO_URL} aria-label="ガイド(歌あり)">
         <track kind="captions" />
       </audio>
 
@@ -458,6 +463,7 @@ const Practice = () => {
           variant="contained"
           onClick={startPlayback}
           disabled={!melodyData || isPracticing}
+          sx={{ fontWeight: "bold" }}
         >
           開始
         </Button>
@@ -465,6 +471,7 @@ const Practice = () => {
           variant="outlined"
           onClick={stopPlayback}
           disabled={!isPracticing}
+          sx={{ fontWeight: "bold" }}
         >
           停止
         </Button>
@@ -472,6 +479,7 @@ const Practice = () => {
           variant="contained"
           onClick={resumePlayback}
           disabled={!melodyData || isPracticing || positionMs <= 0}
+          sx={{ fontWeight: "bold" }}
         >
           再開
         </Button>
@@ -479,13 +487,15 @@ const Practice = () => {
           variant={useGuideVocal ? "contained" : "outlined"}
           color={useGuideVocal ? "secondary" : "primary"}
           onClick={toggleGuideVocal}
+          sx={{ fontWeight: "bold" }}
         >
-          ガイドボーカル {useGuideVocal ? "ON（歌あり）" : "OFF（オケのみ）"}
+          ガイド {useGuideVocal ? "ON" : "OFF"}
         </Button>
         <Button
           variant="outlined"
           onClick={seekBackward}
           disabled={!melodyData || totalDurationMs <= 0}
+          sx={{ fontWeight: "bold" }}
         >
           {seekSeconds}秒戻す
         </Button>
@@ -493,6 +503,7 @@ const Practice = () => {
           variant="outlined"
           onClick={seekForward}
           disabled={!melodyData || totalDurationMs <= 0}
+          sx={{ fontWeight: "bold" }}
         >
           {seekSeconds}秒送る
         </Button>
@@ -500,9 +511,6 @@ const Practice = () => {
 
       {/* 音程バー（五線譜風）・時間軸・現在位置縦線 */}
       <Paper sx={{ p: 2, mb: 2, overflow: "hidden" }}>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          音程バー
-        </Typography>
         <Box sx={{ overflow: "hidden", width: "100%", minWidth: 0 }}>
           <PitchBar
             notes={melodyData?.notes ?? []}
@@ -514,7 +522,7 @@ const Practice = () => {
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ mt: 1, display: "block" }}
+          sx={{ mt: 1, display: "block", textAlign: "right" }}
         >
           {(positionMs / 1000).toFixed(1)}s /{" "}
           {(totalDurationMs / 1000).toFixed(1)}s
@@ -567,8 +575,13 @@ const Practice = () => {
         </Box>
       </Paper>
 
-      <Box sx={{ mt: 2 }}>
-        <Button component={Link} to="/" variant="text">
+      <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+        <Button
+          component={Link}
+          to="/"
+          variant="text"
+          sx={{ fontWeight: "bold" }}
+        >
           ← ホームへ
         </Button>
       </Box>

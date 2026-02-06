@@ -10,6 +10,7 @@ import {
 } from "react-router"
 
 import type { Route } from "./+types/root"
+import { WHITE } from "~/constants/colors"
 import "./app.css"
 
 const theme = createTheme({
@@ -20,7 +21,7 @@ const theme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          color: "#fff",
+          color: WHITE,
         },
       },
     },
