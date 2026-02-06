@@ -10,12 +10,11 @@ import * as Pitchfinder from "pitchfinder"
 import { useCallback, useRef } from "react"
 import { frequencyToMidi } from "~/lib/pitch"
 
-const SAMPLE_RATE = 44100
-/** 小さいほど遅延減、大きいほど低音の検出精度向上。1024 ≒ 23ms */
-const BUFFER_SIZE = 1024
+/** 小さいほど遅延減、大きいほど低音の検出精度向上。2048 は iOS で安定しやすい */
+const BUFFER_SIZE = 2048
 export const PITCH_INTERVAL_MS = 25
-/** マイク入力の増幅度。小さい声でも検出しやすくする */
-const INPUT_GAIN = 3
+/** マイク入力の増幅度。スマホマイクは小さいため 5 に設定 */
+const INPUT_GAIN = 5
 
 export interface UsePitchDetectionOptions {
   onPitch: (midi: number) => void
@@ -44,11 +43,13 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
-      const context = new AudioContext({
-        sampleRate: SAMPLE_RATE,
-        latencyHint: "interactive",
-      })
+      const context = new AudioContext({ latencyHint: "interactive" })
       contextRef.current = context
+      if (context.state === "suspended") {
+        await context.resume()
+      }
+
+      const sampleRate = context.sampleRate
 
       const source = context.createMediaStreamSource(stream)
       sourceRef.current = source
@@ -61,9 +62,9 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       processorRef.current = processor
 
       const detectPitch = Pitchfinder.YIN({
-        sampleRate: SAMPLE_RATE,
-        threshold: 0.05,
-        probabilityThreshold: 0.05,
+        sampleRate,
+        threshold: 0.03,
+        probabilityThreshold: 0.03,
       })
 
       processor.onaudioprocess = (e) => {
