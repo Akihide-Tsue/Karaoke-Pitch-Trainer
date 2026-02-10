@@ -24,6 +24,8 @@ export interface MelodyData {
   lyrics?: LyricEntry[]
   /** BPM（小節線表示用。未設定時は120） */
   bpm?: number
+  /** 小節線の起点（ms）。最初のノート位置を拍に丸めた値 */
+  barOffsetMs?: number
   /** 調（例: "C", "Am"）。MIDI keySignature から取得 */
   key?: string
 }
