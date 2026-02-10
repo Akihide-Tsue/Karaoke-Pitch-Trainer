@@ -101,10 +101,14 @@ const Practice = () => {
     getPlaybackPositionMsRef.current = playback.getPlaybackPositionMs
   }, [playback])
 
-  // マウント後に setTimeout で startLoading を 1 回だけ試行（Mac では自動で読み込み開始。iOS でハングした場合は「曲を読み込む」で再試行）
+  // iOS ではユーザー操作なしの startLoading が完了しないため、自動試行は行わない。それ以外では setTimeout で 1 回だけ試行
   const hasAutoLoadScheduledRef = useRef(false)
   useEffect(() => {
     if (hasAutoLoadScheduledRef.current) return
+    const isIos =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    if (isIos) return
     hasAutoLoadScheduledRef.current = true
     const t = setTimeout(() => {
       playback.startLoading()
