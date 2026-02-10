@@ -55,7 +55,6 @@ const Practice = () => {
 
   const pitchBufferRef = useRef<PitchEntry[]>([])
   const flushScheduledRef = useRef(false)
-  const PITCH_FLUSH_MS = 50 // ピッチデータの描画更新間隔（ミリ秒）
   const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
 
   const pitchDetection = usePitchDetection({
@@ -67,12 +66,12 @@ const Practice = () => {
         })
         if (!flushScheduledRef.current) {
           flushScheduledRef.current = true
-          setTimeout(() => {
+          requestAnimationFrame(() => {
             const batch = pitchBufferRef.current
             pitchBufferRef.current = []
             flushScheduledRef.current = false
             setPitchData((prev) => [...prev, ...batch])
-          }, PITCH_FLUSH_MS)
+          })
         }
       },
       [setPitchData, micDelayMs],

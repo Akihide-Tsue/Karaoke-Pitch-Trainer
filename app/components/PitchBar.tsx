@@ -14,7 +14,7 @@ import { getTargetPitchAtTime, type MelodyNote } from "~/lib/melody"
 import { PITCH_INTERVAL_MS } from "~/lib/usePitchDetection"
 import type { PitchEntry } from "~/stores/practice"
 
-/** 音程バーに表示する小節数（UIで調整する想定） */
+/** 音程バーに表示する小節数。2にすると「現在」の前後が十分見えて歌唱がリアルタイムで見える */
 const PITCH_BAR_WINDOW_BARS = 1
 /** ウィンドウ更新の刻み（ms）。小さいほどスムーズ、大きいほど再計算を抑制 */
 const POSITION_TICK_MS = 16
@@ -223,29 +223,9 @@ export const PitchBar = ({
     scaleY,
   } = svgData
 
-  // 位置線用: positionTick ではなく positionMs でウィンドウを計算し、揺れを防ぐ
-  const windowDurationMs = PITCH_BAR_WINDOW_BARS * msPerBar
-  const POSITION_RATIO = 1 / 3
-  const windowStartMsLine = Math.max(
-    0,
-    Math.min(
-      positionMs - windowDurationMs * POSITION_RATIO,
-      totalDurationMs - windowDurationMs,
-    ),
-  )
-  const windowEndMsLine = Math.min(
-    totalDurationMs,
-    windowStartMsLine + windowDurationMs,
-  )
-  const actualWindowMsLine = windowEndMsLine - windowStartMsLine
-  const scaleXLine = (ms: number) =>
-    actualWindowMsLine > 0
-      ? ((ms - windowStartMsLine) / actualWindowMsLine) * w
-      : 0
-  const positionPct = Math.max(
-    0,
-    Math.min(100, (scaleXLine(positionMs) / w) * 100),
-  )
+  // 位置線は SVG と同じ scaleX を使い、赤い線と現在位置・描画内容を一致させる
+  const rawPositionX = scaleX(positionMs)
+  const positionPct = Math.max(0, Math.min(100, (rawPositionX / w) * 100))
 
   return (
     <Box
@@ -273,7 +253,7 @@ export const PitchBar = ({
           overflow: "hidden",
         }}
         viewBox={`0 0 ${w} ${totalHeight}`}
-        preserveAspectRatio="xMidYMid meet"
+        preserveAspectRatio="xMinYMid meet"
       >
         <title>音程バー</title>
         {lines.map((l, i) => (

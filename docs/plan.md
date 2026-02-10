@@ -319,6 +319,15 @@ function computeScore(
 }
 ```
 
+### 6.4 検討: Web Worker / WASM
+
+現状は **メインスレッドで pitchfinder（YIN）＋ ScriptProcessorNode** を使用している。コメントでは「将来は AudioWorklet への移行を検討」とあるが、**Web Worker + WASM** も検討対象とする。
+
+- **このプロジェクトで可能か**: **可能**。
+  - **Worker + pitchfinder（JS）**: オーディオバッファ（Float32Array）を `postMessage` で Worker に送り、Worker 内で YIN を実行して結果を返す。メインスレッドのブロックを避けられ、実装も比較的容易。pitchfinder は Worker 内でそのまま利用できる。
+  - **Worker + WASM**: [midikaraoke.app](https://midikaraoke.app/) と同様に、Rust/C 等でピッチ検出を WASM 化し Worker で動かす。レイテンシ・精度の最適化やネイティブ並みの負荷が期待できるが、WASM モジュールの用意（既存ライブラリの WASM ビルド or 自前）が必要。
+- **導入する場合の流れ**: (1) メイン: ScriptProcessorNode（または将来 AudioWorklet）で PCM を取得 → Worker に転送。 (2) Worker: 現在時刻（またはメインから渡す再生位置）と合わせてピッチを計算 → `postMessage({ midi, timeMs })` で返す。 (3) メイン: 受け取った結果を `onPitch` に渡して既存の `pitchData` 更新と同様に扱う。
+
 ---
 
 ## 7. 実装手順（Phase 1〜5）

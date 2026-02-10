@@ -1,10 +1,10 @@
 /**
  * Web Audio API + pitchfinder によるピッチ検出
  * MediaRecorder による録音
- * 25ms 間隔で MIDI ノート番号を取得し、コールバックで渡す
+ * PITCH_INTERVAL_MS 間隔で MIDI ノート番号を取得し、コールバックで渡す
  *
  * メモ: ScriptProcessorNode は非推奨だが多くの環境で動作。PoC ではこのままでよい。
- * 将来レイテンシ・安定性を上げる場合は AudioWorklet への移行を検討する。
+ * 将来: AudioWorklet への移行、または Web Worker + WASM でメインスレッド負荷を下げる検討（plan.md 6.4）。
  */
 import * as Pitchfinder from "pitchfinder"
 import { useCallback, useRef } from "react"
@@ -12,7 +12,8 @@ import { frequencyToMidi } from "~/lib/pitch"
 
 /** 小さいほど遅延減、大きいほど低音の検出精度向上。2048 は iOS で安定しやすい */
 const BUFFER_SIZE = 2048
-export const PITCH_INTERVAL_MS = 25
+/** ピッチ検出のサンプル間隔。20ms で 50/s になりリアルタイム性が上がる（midikaraoke に近づける） */
+export const PITCH_INTERVAL_MS = 20
 /** マイク入力の増幅度。スマホマイクは小さいため 5 に設定 */
 const INPUT_GAIN = 5
 
