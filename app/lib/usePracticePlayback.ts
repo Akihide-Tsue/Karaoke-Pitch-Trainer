@@ -109,10 +109,15 @@ export const usePracticePlayback = (
     setBufferLoadStatus("loading")
     setBufferLoadError(null)
 
-    Promise.all([
-      loadAudioBuffer(instUrl, ctx),
-      loadAudioBuffer(vocalUrl, ctx),
-    ])
+    // iOS Safari では AudioContext が suspended 状態で作られるため、
+    // ユーザー操作のタイミングで resume() してから読み込む
+    const ready = ctx.state === "suspended" ? ctx.resume() : Promise.resolve()
+    ready.then(() =>
+      Promise.all([
+        loadAudioBuffer(instUrl, ctx),
+        loadAudioBuffer(vocalUrl, ctx),
+      ])
+    )
       .then(([instBuf, vocalBuf]) => {
         if (loadingCancelledRef.current) return
         instBufferRef.current = instBuf
