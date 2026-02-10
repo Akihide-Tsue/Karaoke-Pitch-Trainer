@@ -1,15 +1,16 @@
 /**
- * Web Audio API + pitchfinder によるピッチ検出（Web Worker でピッチ計算）
+ * Web Audio API (AudioWorklet) + pitchfinder によるピッチ検出
  * MediaRecorder による録音
  * PITCH_INTERVAL_MS 間隔で MIDI ノート番号を取得し、コールバックで渡す
  *
- * ピッチ検出は pitch.worker.ts 内で実行し、メインスレッドのブロックを避ける（plan.md 6.4）。
+ * AudioWorklet で PCM を収集し、pitch.worker.ts (Web Worker) で YIN 計算を行う。
+ * AudioWorklet スレッドは realtime priority のため重い処理を置かず、
+ * サンプルの転送のみを担当する。
  */
 import { useCallback, useRef } from "react"
+import processorUrl from "./pitch-processor.ts?worker&url"
 
-/** 小さいほど遅延減、大きいほど低音の検出精度向上。2048 は iOS で安定しやすい */
-const BUFFER_SIZE = 2048
-/** ピッチ検出のサンプル間隔。20ms で 50/s になりリアルタイム性が上がる（midikaraoke に近づける） */
+/** ピッチ検出のサンプル間隔。20ms で 50/s になりリアルタイム性が上がる */
 export const PITCH_INTERVAL_MS = 20
 /** マイク入力の増幅度。スマホマイクは小さいため 5 に設定 */
 const INPUT_GAIN = 5
@@ -35,7 +36,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   const contextRef = useRef<AudioContext | null>(null)
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const gainRef = useRef<GainNode | null>(null)
-  const processorRef = useRef<ScriptProcessorNode | null>(null)
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null)
   const workerRef = useRef<Worker | null>(null)
   const latestMidiRef = useRef<number>(0)
   const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -44,7 +45,6 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
 
   const requestPermission = useCallback(async () => {
     try {
-      // Permissions API が使える場合は状態を確認。許可済みなら何もしない（永続許可のまま）。
       try {
         if (typeof navigator.permissions?.query === "function") {
           const perm = await navigator.permissions.query({ name: "microphone" })
@@ -55,7 +55,6 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
         // query 非対応（Safari 等）の場合は下の getUserMedia でダイアログを出す
       }
 
-      // prompt または API 非対応時は getUserMedia でダイアログを出す。許可されればブラウザが永続保存する。
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       for (const t of stream.getTracks()) t.stop()
     } catch (err) {
@@ -66,10 +65,20 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   const start = useCallback(async () => {
     latestMidiRef.current = 0
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      })
       streamRef.current = stream
 
-      const context = new AudioContext({ latencyHint: "interactive" })
+      // デバイスのデフォルトサンプルレートに合わせてブラウザ側のリサンプリングを最小化
+      const context = new AudioContext({
+        latencyHint: "interactive",
+        sampleRate: 48000,
+      })
       contextRef.current = context
       if (context.state === "suspended") {
         await context.resume()
@@ -77,6 +86,10 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
 
       const sampleRate = context.sampleRate
 
+      // AudioWorklet processor を登録
+      await context.audioWorklet.addModule(processorUrl)
+
+      // pitch.worker.ts（YIN 計算用 Web Worker）を起動
       const worker = new Worker(
         new URL("./pitch.worker.ts", import.meta.url),
         { type: "module" },
@@ -100,20 +113,20 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       gain.gain.value = INPUT_GAIN
       gainRef.current = gain
 
-      const processor = context.createScriptProcessor(BUFFER_SIZE, 1, 1)
-      processorRef.current = processor
-
-      processor.onaudioprocess = (e) => {
+      // AudioWorkletNode を作成し、worklet → worker へサンプルを転送
+      const workletNode = new AudioWorkletNode(context, "pitch-processor")
+      workletNodeRef.current = workletNode
+      workletNode.port.onmessage = (ev: MessageEvent<{ samples: Float32Array; sampleRate: number }>) => {
         if (!workerRef.current) return
-        const input = e.inputBuffer.getChannelData(0)
-        const copy = new Float32Array(input.length)
-        copy.set(input)
-        workerRef.current.postMessage({ samples: copy, sampleRate }, [copy.buffer])
+        const { samples } = ev.data
+        workerRef.current.postMessage({ samples, sampleRate }, [samples.buffer])
       }
 
       source.connect(gain)
-      gain.connect(processor)
-      processor.connect(context.destination)
+      gain.connect(workletNode)
+      // destination に繋がないことで <audio> の出力に干渉しない
+      const dest = context.createMediaStreamDestination()
+      workletNode.connect(dest)
 
       intervalIdRef.current = setInterval(() => {
         const timeMs = getPlaybackPositionMs?.() ?? 0
@@ -160,12 +173,11 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       })
     }
     recorderRef.current = null
-    if (processorRef.current && sourceRef.current) {
-      processorRef.current.onaudioprocess = null
+    if (workletNodeRef.current && sourceRef.current) {
       sourceRef.current.disconnect()
       gainRef.current?.disconnect()
-      processorRef.current.disconnect()
-      processorRef.current = null
+      workletNodeRef.current.disconnect()
+      workletNodeRef.current = null
       gainRef.current = null
       sourceRef.current = null
     }
