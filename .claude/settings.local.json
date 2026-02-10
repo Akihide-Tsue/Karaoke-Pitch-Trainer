@@ -9,7 +9,8 @@
       "Bash(git -C /Users/akihidetsue/work/pitch-poc diff)",
       "Bash(git -C /Users/akihidetsue/work/pitch-poc log --oneline -5)",
       "Bash(git -C /Users/akihidetsue/work/pitch-poc diff --cached)",
-      "Bash(git -C /Users/akihidetsue/work/pitch-poc add app/lib/pitch-processor.ts app/lib/usePitchDetection.ts app/lib/usePracticePlayback.ts)"
+      "Bash(git -C /Users/akihidetsue/work/pitch-poc add app/lib/pitch-processor.ts app/lib/usePitchDetection.ts app/lib/usePracticePlayback.ts)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: ScriptProcessorNode → AudioWorklet 移行 + 音質劣化対策\n\n- ScriptProcessorNode（非推奨）を AudioWorkletNode に置き換え\n- pitch-processor.ts を新規作成（PCM サンプル収集 → Worker 転送）\n- Vite の ?worker&url で worklet ファイルを正しくバンドル\n- 共有 AudioContext / MediaElementSource を廃止し <audio> 直接再生に戻す\n- getUserMedia で echoCancellation/noiseSuppression/autoGainControl を OFF\n- AudioContext の sampleRate を 48000 に明示指定\n- resumePlayback を async 化しピッチ検出を再開時にも開始\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
