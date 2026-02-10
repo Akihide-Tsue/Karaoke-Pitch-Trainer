@@ -16,6 +16,8 @@ import type { PitchEntry } from "~/stores/practice"
 
 /** 音程バーに表示する小節数（UIで調整する想定） */
 const PITCH_BAR_WINDOW_BARS = 1
+/** ウィンドウ・歌唱バー等の再計算をスロットルする間隔（ms）。位置線だけ毎フレーム更新 */
+const POSITION_TICK_MS = 80
 
 /**
  * 五線譜風の音程バーコンポーネント。
@@ -83,6 +85,8 @@ export const PitchBar = ({
   }, [])
 
   const msPerBar = bpm ? (60 * 1000 * 4) / bpm : 2000
+  const positionTick =
+    Math.floor(positionMs / POSITION_TICK_MS) * POSITION_TICK_MS
 
   const svgData = useMemo(() => {
     if (!totalDurationMs || !notes.length) return null
@@ -91,7 +95,7 @@ export const PitchBar = ({
     const windowStartMs = Math.max(
       0,
       Math.min(
-        positionMs - windowDurationMs * POSITION_RATIO,
+        positionTick - windowDurationMs * POSITION_RATIO,
         totalDurationMs - windowDurationMs,
       ),
     )
@@ -141,7 +145,6 @@ export const PitchBar = ({
       (_, i) => minPitchDisplay + i,
     )
     const lines = linePitches.map((pitch) => ({ y: scaleY(pitch), pitch }))
-    const positionX = scaleX(positionMs)
 
     const firstBar = Math.ceil(windowStartMs / msPerBar)
     const lastBar = Math.floor(windowEndMs / msPerBar)
@@ -185,7 +188,6 @@ export const PitchBar = ({
       barPositions,
       visibleNotes,
       singingBars,
-      positionX,
       totalHeight,
       padding,
       w,
@@ -196,7 +198,7 @@ export const PitchBar = ({
     notes,
     pitchData,
     totalDurationMs,
-    positionMs,
+    positionTick,
     msPerBar,
   ])
 
@@ -217,13 +219,13 @@ export const PitchBar = ({
     barPositions,
     visibleNotes,
     singingBars,
-    positionX,
     totalHeight,
     padding,
     w,
     scaleX,
     scaleY,
   } = svgData
+  const positionX = scaleX(positionMs)
 
   return (
     <Box

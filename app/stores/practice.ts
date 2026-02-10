@@ -21,3 +21,6 @@ export const useGuideVocalAtom = atom<boolean>(false)
 
 /** 再生音量（0.0〜1.0）※ iOS は端末の最小音量がゼロにならないことがあるため、初期値は控えめに */
 export const volumeAtom = atom<number>(0.5)
+
+/** 録音モード（ON でマイク入力・ピッチ検出を有効にする想定） */
+export const recordingModeAtom = atom<boolean>(false)

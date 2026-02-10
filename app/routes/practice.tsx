@@ -25,6 +25,7 @@ import {
   melodyDataAtom,
   pitchDataAtom,
   playbackPositionMsAtom,
+  recordingModeAtom,
   useGuideVocalAtom,
   volumeAtom,
   type PitchEntry,
@@ -39,6 +40,8 @@ const Practice = () => {
   const setIsPracticing = useSetAtom(isPracticingAtom)
   const useGuideVocal = useAtomValue(useGuideVocalAtom)
   const setUseGuideVocal = useSetAtom(useGuideVocalAtom)
+  const recordingMode = useAtomValue(recordingModeAtom)
+  const setRecordingMode = useSetAtom(recordingModeAtom)
   const volume = useAtomValue(volumeAtom)
   const setVolume = useSetAtom(volumeAtom)
   const melodyData = useAtomValue(melodyDataAtom)
@@ -88,6 +91,12 @@ const Practice = () => {
     getPlaybackPositionMsRef.current = () =>
       (playback.instRef.current?.currentTime ?? 0) * 1000
   }, [playback])
+
+  // 練習ページを開いたタイミングでマイク許可を取得（開始ボタン押下時にダイアログが出ないようにする）
+  const { requestPermission } = pitchDetection
+  useEffect(() => {
+    requestPermission()
+  }, [requestPermission])
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -222,6 +231,8 @@ const Practice = () => {
         onVolumeChange={(_, value) =>
           setVolume(Array.isArray(value) ? value[0] : value)
         }
+        recordingMode={recordingMode}
+        onRecordingModeChange={setRecordingMode}
         disabled={{
           hasMelodyData: !!melodyData,
           isPracticing,
