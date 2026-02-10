@@ -263,7 +263,7 @@ const Practice = () => {
           練習画面
         </Typography>
         {/* マイク遅延の設定 */}
-        {/* <MicDelaySettings /> */}
+        <MicDelaySettings />
       </Box>
 
       <audio
@@ -338,8 +338,10 @@ const Practice = () => {
             </Typography>
           )}
           <Typography variant="caption" color="text.secondary">
-            {((isPracticing ? smoothPositionMs : viewPositionMs) / 1000).toFixed(1)}s
-            / {(totalDurationMs / 1000).toFixed(1)}s
+            {(
+              (isPracticing ? smoothPositionMs : viewPositionMs) / 1000
+            ).toFixed(1)}
+            s / {(totalDurationMs / 1000).toFixed(1)}s
           </Typography>
         </Box>
       </Paper>

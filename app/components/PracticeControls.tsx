@@ -140,7 +140,7 @@ export const PracticeControls = ({
           音量
         </Typography>
         <Slider
-          sx={{ minWidth: 120 }}
+          sx={{ width: 120 }}
           value={volume}
           onChange={onVolumeChange}
           min={0}

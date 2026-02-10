@@ -1,5 +1,4 @@
 import Box from "@mui/material/Box"
-import Button from "@mui/material/Button"
 import Dialog from "@mui/material/Dialog"
 import DialogContent from "@mui/material/DialogContent"
 import DialogTitle from "@mui/material/DialogTitle"
@@ -8,22 +7,23 @@ import Slider from "@mui/material/Slider"
 import Typography from "@mui/material/Typography"
 import { useAtomValue, useSetAtom } from "jotai"
 import { useState } from "react"
-import { useMicDelayCalibration } from "~/lib/useMicDelayCalibration"
 import { micDelayMsAtom } from "~/stores/practice"
+
+/** スライダー範囲: 0.1s 〜 0.5s（100ms 刻み） */
+const MIN_MS = 100
+const MAX_MS = 500
+const STEP_MS = 100
+
+const marks = [100, 200, 300, 400, 500].map((ms) => ({
+  value: ms,
+  label: `${ms / 1000}s`,
+}))
 
 export const MicDelaySettings = () => {
   const [open, setOpen] = useState(false)
   const micDelayMs = useAtomValue(micDelayMsAtom)
   const setMicDelayMs = useSetAtom(micDelayMsAtom)
-
-  const { calibrate, isCalibrating } = useMicDelayCalibration(
-    (delayMs) => {
-      setMicDelayMs(delayMs)
-    },
-    (err) => {
-      alert(`${err.message}`)
-    },
-  )
+  const sliderValue = Math.min(MAX_MS, Math.max(MIN_MS, micDelayMs))
 
   return (
     <>
@@ -54,39 +54,27 @@ export const MicDelaySettings = () => {
         <DialogContent>
           <Box sx={{ pt: 1 }}>
             <Typography variant="subtitle2" gutterBottom>
-              マイク遅延（ms）
+              マイク遅延
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              歌唱と音程バーの表示ズレを補正します。端末により異なるため、キャリブレーションで計測するか手動で調整してください。
+              歌唱と音程バーの表示ズレを補正します。イヤホン利用時は手動で 0.1s 刻みのいずれかに合わせてください。
             </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Slider
-                value={micDelayMs}
-                onChange={(_, v) => setMicDelayMs(Array.isArray(v) ? v[0] : v)}
-                min={0}
-                max={1000}
-                step={50}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(v) => `${v}ms`}
-                sx={{ flex: 1, maxWidth: 200 }}
-              />
-              <Typography variant="body2" sx={{ minWidth: 48 }}>
-                {micDelayMs}ms
-              </Typography>
-            </Box>
-            <Button
-              variant="outlined"
-              onClick={calibrate}
-              disabled={isCalibrating}
-              sx={{ mt: 2 }}
-            >
-              {isCalibrating ? "計測中…" : "Cal キャリブレーション"}
-            </Button>
-            {isCalibrating && (
-              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                音量を上げて、マイクをスピーカーに近づけてください。
-              </Typography>
-            )}
+            <Slider
+              value={sliderValue}
+              onChange={(_, v) =>
+                setMicDelayMs(Array.isArray(v) ? v[0] : v)
+              }
+              min={MIN_MS}
+              max={MAX_MS}
+              step={STEP_MS}
+              marks={marks}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(v) => `${v / 1000}s`}
+              sx={{ mt: 1, mb: 1 }}
+            />
+            <Typography variant="body2" color="text.secondary">
+              現在: {(sliderValue / 1000).toFixed(1)}s
+            </Typography>
           </Box>
         </DialogContent>
       </Dialog>
