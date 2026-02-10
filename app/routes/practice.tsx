@@ -8,6 +8,7 @@ import { useAtomValue, useSetAtom } from "jotai"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router"
 import { LyricsPanel } from "~/components/LyricsPanel"
+import { MicDelaySettings } from "~/components/MicDelaySettings"
 import { PitchBar } from "~/components/PitchBar"
 import { PracticeControls } from "~/components/PracticeControls"
 import {
@@ -24,12 +25,13 @@ import { usePracticePlayback } from "~/lib/usePracticePlayback"
 import {
   isPracticingAtom,
   melodyDataAtom,
+  micDelayMsAtom,
+  type PitchEntry,
   pitchDataAtom,
   playbackPositionMsAtom,
   recordingModeAtom,
   useGuideVocalAtom,
   volumeAtom,
-  type PitchEntry,
 } from "~/stores/practice"
 
 type LyricsJsonEntry = { time: number; lyric: string }
@@ -49,16 +51,20 @@ const Practice = () => {
   const pitchData = useAtomValue(pitchDataAtom)
   const positionMs = useAtomValue(playbackPositionMsAtom)
   const isPracticing = useAtomValue(isPracticingAtom)
+  const micDelayMs = useAtomValue(micDelayMsAtom)
 
   const pitchBufferRef = useRef<PitchEntry[]>([])
   const flushScheduledRef = useRef(false)
-  const PITCH_FLUSH_MS = 100
+  const PITCH_FLUSH_MS = 50 // ピッチデータの描画更新間隔（ミリ秒）
   const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
 
   const pitchDetection = usePitchDetection({
     onPitch: useCallback(
       (midi: number, timeMs: number) => {
-        pitchBufferRef.current.push({ timeMs, midi })
+        pitchBufferRef.current.push({
+          timeMs: timeMs - micDelayMs,
+          midi,
+        })
         if (!flushScheduledRef.current) {
           flushScheduledRef.current = true
           setTimeout(() => {
@@ -69,7 +75,7 @@ const Practice = () => {
           }, PITCH_FLUSH_MS)
         }
       },
-      [setPitchData],
+      [setPitchData, micDelayMs],
     ),
     getPlaybackPositionMs: () => getPlaybackPositionMsRef.current(),
     onError: useCallback((err: Error) => {
@@ -89,8 +95,12 @@ const Practice = () => {
   })
 
   useEffect(() => {
-    getPlaybackPositionMsRef.current = () =>
-      (playback.instRef.current?.currentTime ?? 0) * 1000
+    getPlaybackPositionMsRef.current = () => {
+      const v = playback.vocalRef.current
+      const i = playback.instRef.current
+      const active = v && !v.paused ? v : i
+      return (active?.currentTime ?? 0) * 1000
+    }
   }, [playback])
 
   // 練習ページを開いたタイミングでマイク許可を取得（開始ボタン押下時にダイアログが出ないようにする）
@@ -102,11 +112,24 @@ const Practice = () => {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [viewPositionMs, setViewPositionMs] = useState(0)
+  const [smoothPositionMs, setSmoothPositionMs] = useState(0)
   const [isStartingPlayback, setIsStartingPlayback] = useState(false)
 
   useEffect(() => {
     if (!isPracticing) setViewPositionMs(positionMs)
   }, [isPracticing, positionMs])
+
+  // 再生中は requestAnimationFrame で位置を毎フレーム更新し、PitchBar の位置線をスムーズに動かす
+  useEffect(() => {
+    if (!isPracticing) return
+    let rafId: number
+    const tick = () => {
+      setSmoothPositionMs(getPlaybackPositionMsRef.current())
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [isPracticing])
 
   // キーボードの音量キー（VolumeUp/VolumeDown/VolumeMute）でアプリ音量とUIスライダーを連動
   useEffect(() => {
@@ -135,6 +158,7 @@ const Practice = () => {
     },
     [playback, isPracticing],
   )
+
   const handleSeekBackward = useCallback(() => {
     playback.seekBackward()
     if (!isPracticing) {
@@ -142,6 +166,7 @@ const Practice = () => {
       setViewPositionMs(sec * 1000)
     }
   }, [playback, isPracticing])
+
   const handleSeekForward = useCallback(() => {
     playback.seekForward()
     if (!isPracticing) {
@@ -150,14 +175,14 @@ const Practice = () => {
     }
   }, [playback, isPracticing])
 
-  const handleStart = useCallback(async () => {
+  const handleStart = async () => {
     setIsStartingPlayback(true)
     try {
       await playback.startPlayback()
     } finally {
       setIsStartingPlayback(false)
     }
-  }, [playback])
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -227,9 +252,20 @@ const Practice = () => {
         </Box>
       )}
 
-      <Typography component="h1" variant="h6" gutterBottom>
-        練習画面
-      </Typography>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 1,
+        }}
+      >
+        <Typography component="h1" variant="h6">
+          練習画面
+        </Typography>
+        {/* マイク遅延の設定 */}
+        {/* <MicDelaySettings /> */}
+      </Box>
 
       <audio
         ref={playback.instRef}
@@ -277,7 +313,7 @@ const Practice = () => {
             notes={melodyData?.notes ?? []}
             pitchData={pitchData}
             totalDurationMs={totalDurationMs}
-            positionMs={isPracticing ? positionMs : viewPositionMs}
+            positionMs={isPracticing ? smoothPositionMs : viewPositionMs}
             bpm={melodyData?.bpm}
             onViewDrag={!isPracticing ? setViewPositionMs : undefined}
           />
@@ -303,7 +339,7 @@ const Practice = () => {
             </Typography>
           )}
           <Typography variant="caption" color="text.secondary">
-            {((isPracticing ? positionMs : viewPositionMs) / 1000).toFixed(1)}s
+            {((isPracticing ? smoothPositionMs : viewPositionMs) / 1000).toFixed(1)}s
             / {(totalDurationMs / 1000).toFixed(1)}s
           </Typography>
         </Box>

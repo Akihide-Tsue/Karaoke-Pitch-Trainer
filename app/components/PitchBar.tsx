@@ -16,8 +16,10 @@ import type { PitchEntry } from "~/stores/practice"
 
 /** 音程バーに表示する小節数（UIで調整する想定） */
 const PITCH_BAR_WINDOW_BARS = 1
-/** ウィンドウ・歌唱バー等の再計算をスロットルする間隔（ms）。位置線だけ毎フレーム更新 */
-const POSITION_TICK_MS = 80
+/** ウィンドウ更新の刻み（ms）。小さいほどスムーズ、大きいほど再計算を抑制 */
+const POSITION_TICK_MS = 16
+/** ドラッグ感度。1幅分のドラッグでパンする小節数。大きくすると少ないドラッグで大きく移動 */
+const DRAG_SENSITIVITY_BARS = 2
 
 /**
  * 五線譜風の音程バーコンポーネント。
@@ -67,9 +69,8 @@ export const PitchBar = ({
       if (!drag || !onViewDrag || !containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
       const deltaX = e.clientX - drag.startX
-      const msPerPx =
-        (PITCH_BAR_WINDOW_BARS * (bpm ? (60 * 1000 * 4) / bpm : 2000)) /
-        rect.width
+      const msPerBar = bpm ? (60 * 1000 * 4) / bpm : 2000
+      const msPerPx = (DRAG_SENSITIVITY_BARS * msPerBar) / rect.width
       const deltaMs = deltaX * msPerPx
       const newMs = Math.max(
         0,
@@ -92,10 +93,11 @@ export const PitchBar = ({
     if (!totalDurationMs || !notes.length) return null
     const windowDurationMs = PITCH_BAR_WINDOW_BARS * msPerBar
     const POSITION_RATIO = 1 / 3
+    const pos = positionTick
     const windowStartMs = Math.max(
       0,
       Math.min(
-        positionTick - windowDurationMs * POSITION_RATIO,
+        pos - windowDurationMs * POSITION_RATIO,
         totalDurationMs - windowDurationMs,
       ),
     )
@@ -159,7 +161,8 @@ export const PitchBar = ({
     const singingBars: ReactElement[] = []
     for (let i = 0; i < visiblePitches.length; i++) {
       const { timeMs, midi } = visiblePitches[i]
-      if (midi <= 0 || midi < minPitchDisplay || midi > maxPitchDisplay) continue
+      if (midi <= 0 || midi < minPitchDisplay || midi > maxPitchDisplay)
+        continue
       const x = scaleX(timeMs)
       const target = getTargetPitchAtTime(notes, timeMs)
       const match = target != null && Math.abs(midi - target) <= 1
@@ -194,13 +197,7 @@ export const PitchBar = ({
       scaleX,
       scaleY,
     }
-  }, [
-    notes,
-    pitchData,
-    totalDurationMs,
-    positionTick,
-    msPerBar,
-  ])
+  }, [notes, pitchData, totalDurationMs, positionTick, msPerBar])
 
   if (!totalDurationMs || !notes.length) {
     return (
@@ -219,13 +216,36 @@ export const PitchBar = ({
     barPositions,
     visibleNotes,
     singingBars,
-    positionX,
     totalHeight,
     padding,
     w,
     scaleX,
     scaleY,
   } = svgData
+
+  // 位置線用: positionTick ではなく positionMs でウィンドウを計算し、揺れを防ぐ
+  const windowDurationMs = PITCH_BAR_WINDOW_BARS * msPerBar
+  const POSITION_RATIO = 1 / 3
+  const windowStartMsLine = Math.max(
+    0,
+    Math.min(
+      positionMs - windowDurationMs * POSITION_RATIO,
+      totalDurationMs - windowDurationMs,
+    ),
+  )
+  const windowEndMsLine = Math.min(
+    totalDurationMs,
+    windowStartMsLine + windowDurationMs,
+  )
+  const actualWindowMsLine = windowEndMsLine - windowStartMsLine
+  const scaleXLine = (ms: number) =>
+    actualWindowMsLine > 0
+      ? ((ms - windowStartMsLine) / actualWindowMsLine) * w
+      : 0
+  const positionPct = Math.max(
+    0,
+    Math.min(100, (scaleXLine(positionMs) / w) * 100),
+  )
 
   return (
     <Box
@@ -296,16 +316,30 @@ export const PitchBar = ({
           />
         ))}
         {singingBars}
-        <line
-          x1={positionX}
-          x2={positionX}
-          y1={0}
-          y2={totalHeight}
-          stroke={PITCH_POSITION_LINE}
-          strokeWidth={2}
-          strokeDasharray="4 2"
-        />
       </svg>
+      {/* 現在位置の赤い縦線: 別レイヤー（isolation）＋ positionMs ベースの座標で揺れ防止 */}
+      <Box
+        aria-hidden
+        sx={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          isolation: "isolate",
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            left: `${positionPct}%`,
+            top: 0,
+            bottom: 0,
+            width: 2,
+            borderLeft: `2px dashed ${PITCH_POSITION_LINE}`,
+            transform: "translateX(-50%) translateZ(0)",
+            willChange: "left",
+          }}
+        />
+      </Box>
     </Box>
   )
 }
