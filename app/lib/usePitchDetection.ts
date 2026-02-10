@@ -25,6 +25,8 @@ export interface UsePitchDetectionOptions {
 }
 
 export interface UsePitchDetectionResult {
+  /** マイク許可を事前に取得する（ストリームは即解放）。ページ表示時に呼ぶとダイアログを先に出せる */
+  requestPermission: () => Promise<void>
   start: () => Promise<void>
   stop: () => Promise<Blob | null>
 }
@@ -40,6 +42,27 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+
+  const requestPermission = useCallback(async () => {
+    try {
+      // Permissions API が使える場合は状態を確認。許可済みなら何もしない（永続許可のまま）。
+      try {
+        if (typeof navigator.permissions?.query === "function") {
+          const perm = await navigator.permissions.query({ name: "microphone" })
+          if (perm.state === "granted") return
+          if (perm.state === "denied") return
+        }
+      } catch {
+        // query 非対応（Safari 等）の場合は下の getUserMedia でダイアログを出す
+      }
+
+      // prompt または API 非対応時は getUserMedia でダイアログを出す。許可されればブラウザが永続保存する。
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      for (const t of stream.getTracks()) t.stop()
+    } catch (err) {
+      onError?.(err instanceof Error ? err : new Error(String(err)))
+    }
+  }, [onError])
 
   const start = useCallback(async () => {
     try {
@@ -142,5 +165,5 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     return blob
   }, [])
 
-  return { start, stop }
+  return { requestPermission, start, stop }
 }
