@@ -60,7 +60,7 @@ export const PracticeControls = ({
   <Box sx={{ mb: 2 }}>
     <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1 }}>
       <Button
-        variant="contained"
+        variant="outlined"
         onClick={onStart}
         disabled={!disabled.hasMelodyData || disabled.isPracticing}
         sx={{ fontWeight: "bold" }}
@@ -68,24 +68,16 @@ export const PracticeControls = ({
         開始
       </Button>
       <Button
-        variant="outlined"
-        onClick={onStop}
-        disabled={!disabled.isPracticing}
-        sx={{ fontWeight: "bold" }}
-      >
-        停止
-      </Button>
-      <Button
-        variant="contained"
-        onClick={onResume}
+        variant={disabled.isPracticing ? "outlined" : "contained"}
+        onClick={disabled.isPracticing ? onStop : onResume}
         disabled={
-          !disabled.hasMelodyData ||
-          disabled.isPracticing ||
-          disabled.positionMs <= 0
+          disabled.isPracticing
+            ? false
+            : !disabled.hasMelodyData || disabled.positionMs <= 0
         }
         sx={{ fontWeight: "bold" }}
       >
-        再開
+        {disabled.isPracticing ? "停止" : "再開"}
       </Button>
       <Button
         variant={useGuideVocal ? "contained" : "outlined"}
