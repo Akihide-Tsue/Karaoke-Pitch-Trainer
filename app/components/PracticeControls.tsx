@@ -2,8 +2,6 @@ import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
 import Checkbox from "@mui/material/Checkbox"
 import FormControlLabel from "@mui/material/FormControlLabel"
-import Slider from "@mui/material/Slider"
-import Typography from "@mui/material/Typography"
 
 /**
  * 練習画面のコントロールボタン群。
@@ -115,7 +113,7 @@ export const PracticeControls = ({
     <Box
       sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}
     >
-      <Box
+      {/* <Box
         sx={{
           display: "flex",
           alignItems: "center",
@@ -142,7 +140,7 @@ export const PracticeControls = ({
           valueLabelDisplay="auto"
           valueLabelFormat={(v) => `${Math.round(v * 100)}%`}
         />
-      </Box>
+      </Box> */}
       <FormControlLabel
         // 一時的に非表示
         sx={{ display: "none" }}
