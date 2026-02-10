@@ -101,6 +101,17 @@ const Practice = () => {
     getPlaybackPositionMsRef.current = playback.getPlaybackPositionMs
   }, [playback])
 
+  // マウント後に setTimeout で startLoading を 1 回だけ試行（Mac では自動で読み込み開始。iOS でハングした場合は「曲を読み込む」で再試行）
+  const hasAutoLoadScheduledRef = useRef(false)
+  useEffect(() => {
+    if (hasAutoLoadScheduledRef.current) return
+    hasAutoLoadScheduledRef.current = true
+    const t = setTimeout(() => {
+      playback.startLoading()
+    }, 0)
+    return () => clearTimeout(t)
+  }, [playback])
+
   // 練習ページを開いたタイミングでマイク許可を取得（開始ボタン押下時にダイアログが出ないようにする）
   const { requestPermission } = pitchDetection
   useEffect(() => {
@@ -204,7 +215,7 @@ const Practice = () => {
     }
   }, [setMelodyData])
 
-  if (loading || (!playback.isLoaded && !playback.bufferLoadError)) {
+  if (loading) {
     return (
       <Container maxWidth="md" sx={{ py: 3 }}>
         <Typography>曲を読み込み中…</Typography>
@@ -212,13 +223,50 @@ const Practice = () => {
     )
   }
 
-  if (playback.bufferLoadError) {
+  if (playback.bufferLoadStatus === "idle") {
+    return (
+      <Container maxWidth="md" sx={{ py: 3 }}>
+        <Typography sx={{ mb: 2 }}>
+          音声を読み込むには下のボタンを押してください。（iPhone では必要です）
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => playback.startLoading()}
+          sx={{ fontWeight: "bold" }}
+        >
+          曲を読み込む
+        </Button>
+        <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+          <Button component={Link} to="/" sx={{ fontWeight: "bold" }}>
+            ← ホームへ
+          </Button>
+        </Box>
+      </Container>
+    )
+  }
+
+  if (playback.bufferLoadStatus === "loading") {
+    return (
+      <Container maxWidth="md" sx={{ py: 3 }}>
+        <Typography>曲を読み込み中…</Typography>
+      </Container>
+    )
+  }
+
+  if (playback.bufferLoadStatus === "error" && playback.bufferLoadError) {
     return (
       <Container maxWidth="md" sx={{ py: 3 }}>
         <Typography color="error">
           音声の読み込みに失敗しました: {playback.bufferLoadError}
         </Typography>
-        <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+        <Box sx={{ mt: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+          <Button
+            variant="contained"
+            onClick={() => playback.startLoading()}
+            sx={{ fontWeight: "bold" }}
+          >
+            再試行
+          </Button>
           <Button component={Link} to="/" sx={{ fontWeight: "bold" }}>
             ホームへ
           </Button>
