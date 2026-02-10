@@ -24,3 +24,4 @@ pnpm dev
 ## メモ
 
 - npx create-react-router@latest
+- 音程取得処理とbluetoothイヤホンは遅延するので調整必要

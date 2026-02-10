@@ -19,6 +19,7 @@ const marks = [100, 200, 300, 400, 500].map((ms) => ({
   label: `${ms / 1000}s`,
 }))
 
+/** マイク遅延調整ダイアログ */
 export const MicDelaySettings = () => {
   const [open, setOpen] = useState(false)
   const micDelayMs = useAtomValue(micDelayMsAtom)
@@ -57,22 +58,21 @@ export const MicDelaySettings = () => {
               マイク遅延
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              歌唱と音程バーの表示ズレを補正します。イヤホン利用時は手動で 0.1s 刻みのいずれかに合わせてください。
+              歌唱と音程バーの表示ズレを補正します。イヤホン利用時は手動で 0.1s
+              刻みのいずれかに合わせてください。
             </Typography>
             <Slider
               value={sliderValue}
-              onChange={(_, v) =>
-                setMicDelayMs(Array.isArray(v) ? v[0] : v)
-              }
+              onChange={(_, v) => setMicDelayMs(Array.isArray(v) ? v[0] : v)}
               min={MIN_MS}
               max={MAX_MS}
               step={STEP_MS}
               marks={marks}
               valueLabelDisplay="auto"
               valueLabelFormat={(v) => `${v / 1000}s`}
-              sx={{ mt: 1, mb: 1 }}
+              sx={{ my: 1 }}
             />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               現在: {(sliderValue / 1000).toFixed(1)}s
             </Typography>
           </Box>

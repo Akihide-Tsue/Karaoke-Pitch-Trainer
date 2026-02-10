@@ -14,6 +14,9 @@ export const PITCH_BAR_LINE = "#ccc"
 /** 音程バー 曲のノート（青） */
 export const PITCH_NOTE = "#64b5f6"
 
+/** 音程バー 現在歌うべきノート（濃い青・カラオケハイライト） */
+export const PITCH_NOTE_CURRENT = "#1565c0"
+
 /** 音程バー 歌唱ノート 一致（緑） */
 export const PITCH_NOTE_MATCH = "#4caf50"
 

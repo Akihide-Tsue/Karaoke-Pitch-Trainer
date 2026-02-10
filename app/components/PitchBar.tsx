@@ -6,9 +6,9 @@ import {
   PITCH_C_LINE,
   PITCH_GRID_LINE,
   PITCH_NOTE,
+  PITCH_NOTE_CURRENT,
   PITCH_NOTE_MATCH,
   PITCH_NOTE_MISMATCH,
-  PITCH_POSITION_LINE,
 } from "~/constants/colors"
 import { getTargetPitchAtTime, type MelodyNote } from "~/lib/melody"
 import { PITCH_INTERVAL_MS } from "~/lib/usePitchDetection"
@@ -92,7 +92,7 @@ export const PitchBar = ({
   const svgData = useMemo(() => {
     if (!totalDurationMs || !notes.length) return null
     const windowDurationMs = PITCH_BAR_WINDOW_BARS * msPerBar
-    const POSITION_RATIO = 1 / 3
+    const POSITION_RATIO = 0.5
     const pos = positionTick
     const windowStartMs = Math.max(
       0,
@@ -283,22 +283,25 @@ export const PitchBar = ({
             />
           )
         })}
-        {visibleNotes.map((n, i) => (
-          <rect
-            key={`note-${n.startMs}-${n.pitch}-${i}`}
-            x={scaleX(n.startMs)}
-            y={scaleY(n.pitch) - 6}
-            width={Math.max(2, scaleX(n.endMs) - scaleX(n.startMs))}
-            height={12}
-            fill={PITCH_NOTE}
-            rx={4}
-            ry={4}
-          />
-        ))}
+        {visibleNotes.map((n, i) => {
+          const isCurrent = n.startMs <= positionTick && positionTick < n.endMs
+          return (
+            <rect
+              key={`note-${n.startMs}-${n.pitch}-${i}`}
+              x={scaleX(n.startMs)}
+              y={scaleY(n.pitch) - 6}
+              width={Math.max(2, scaleX(n.endMs) - scaleX(n.startMs))}
+              height={12}
+              fill={isCurrent ? PITCH_NOTE_CURRENT : PITCH_NOTE}
+              rx={4}
+              ry={4}
+            />
+          )
+        })}
         {singingBars}
       </svg>
-      {/* 現在位置の赤い縦線: 別レイヤー（isolation）＋ positionMs ベースの座標で揺れ防止 */}
-      <Box
+      {/* 現在位置の赤い縦線: 一旦非表示 */}
+      {/* <Box
         aria-hidden
         sx={{
           position: "absolute",
@@ -314,12 +317,12 @@ export const PitchBar = ({
             top: 0,
             bottom: 0,
             width: 2,
-            borderLeft: `2px dashed ${PITCH_POSITION_LINE}`,
+            borderLeft: "2px dashed #E63C3C",
             transform: "translateX(-50%) translateZ(0)",
             willChange: "left",
           }}
         />
-      </Box>
+      </Box> */}
     </Box>
   )
 }
