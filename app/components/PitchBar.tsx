@@ -219,13 +219,13 @@ export const PitchBar = ({
     barPositions,
     visibleNotes,
     singingBars,
+    positionX,
     totalHeight,
     padding,
     w,
     scaleX,
     scaleY,
   } = svgData
-  const positionX = scaleX(positionMs)
 
   return (
     <Box
