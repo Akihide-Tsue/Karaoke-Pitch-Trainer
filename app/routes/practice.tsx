@@ -11,6 +11,7 @@ import { LyricsPanel } from "~/components/LyricsPanel"
 import { MicDelaySettings } from "~/components/MicDelaySettings"
 import { PitchBar } from "~/components/PitchBar"
 import { PracticeControls } from "~/components/PracticeControls"
+import { PracticeLoadingScreen } from "~/components/PracticeLoadingScreen"
 import {
   INST_AUDIO_URL,
   MIDI_URL,
@@ -215,23 +216,12 @@ const Practice = () => {
     }
   }, [setMelodyData])
 
-  if (loading) {
-    return (
-      <Container maxWidth="md" sx={{ py: 3 }}>
-        <Typography>曲を読み込み中…</Typography>
-      </Container>
-    )
-  }
-
   if (
+    loading ||
     playback.bufferLoadStatus === "idle" ||
     playback.bufferLoadStatus === "loading"
   ) {
-    return (
-      <Container maxWidth="md" sx={{ py: 3 }}>
-        <Typography>曲を読み込み中…</Typography>
-      </Container>
-    )
+    return <PracticeLoadingScreen />
   }
 
   if (playback.bufferLoadStatus === "error" && playback.bufferLoadError) {
