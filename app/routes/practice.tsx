@@ -204,10 +204,25 @@ const Practice = () => {
     }
   }, [setMelodyData])
 
-  if (loading || !playback.isLoaded) {
+  if (loading || (!playback.isLoaded && !playback.bufferLoadError)) {
     return (
       <Container maxWidth="md" sx={{ py: 3 }}>
         <Typography>曲を読み込み中…</Typography>
+      </Container>
+    )
+  }
+
+  if (playback.bufferLoadError) {
+    return (
+      <Container maxWidth="md" sx={{ py: 3 }}>
+        <Typography color="error">
+          音声の読み込みに失敗しました: {playback.bufferLoadError}
+        </Typography>
+        <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+          <Button component={Link} to="/" sx={{ fontWeight: "bold" }}>
+            ホームへ
+          </Button>
+        </Box>
       </Container>
     )
   }

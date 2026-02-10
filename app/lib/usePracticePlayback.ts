@@ -31,6 +31,8 @@ export interface UsePracticePlaybackOptions {
  */
 export interface UsePracticePlaybackResult {
   isLoaded: boolean
+  /** 音声バッファのロードに失敗した場合のエラーメッセージ */
+  bufferLoadError: string | null
   getPlaybackPositionMs: () => number
   startPlayback: () => Promise<void>
   stopPlayback: () => Promise<void>
@@ -72,6 +74,7 @@ export const usePracticePlayback = (
   const instBufferRef = useRef<AudioBuffer | null>(null)
   const vocalBufferRef = useRef<AudioBuffer | null>(null)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [bufferLoadError, setBufferLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     const ctx = new AudioContext({ sampleRate: 48000 })
@@ -85,15 +88,25 @@ export const usePracticePlayback = (
 
     let cancelled = false
     setIsLoaded(false)
+    setBufferLoadError(null)
     Promise.all([
       loadAudioBuffer(instUrl, ctx),
       loadAudioBuffer(vocalUrl, ctx),
-    ]).then(([instBuf, vocalBuf]) => {
-      if (cancelled) return
-      instBufferRef.current = instBuf
-      vocalBufferRef.current = vocalBuf
-      setIsLoaded(true)
-    })
+    ])
+      .then(([instBuf, vocalBuf]) => {
+        if (cancelled) return
+        instBufferRef.current = instBuf
+        vocalBufferRef.current = vocalBuf
+        setBufferLoadError(null)
+        setIsLoaded(true)
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setBufferLoadError(
+            err instanceof Error ? err.message : String(err),
+          )
+        }
+      })
     return () => {
       cancelled = true
       ctx.close()
@@ -221,7 +234,12 @@ export const usePracticePlayback = (
     setPitchData([])
     setIsPracticing(true)
 
-    await pitchDetection.start(ctx)
+    try {
+      await pitchDetection.start(ctx)
+    } catch {
+      setIsPracticing(false)
+      return
+    }
 
     startedAtRef.current = ctx.currentTime
     playingRef.current = true
@@ -419,6 +437,7 @@ export const usePracticePlayback = (
 
   return {
     isLoaded,
+    bufferLoadError,
     getPlaybackPositionMs,
     startPlayback,
     stopPlayback,
