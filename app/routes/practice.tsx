@@ -325,10 +325,6 @@ const Practice = () => {
         onSeekForward={handleSeekForward}
         useGuideVocal={useGuideVocal}
         seekSeconds={playback.seekSeconds}
-        volume={volume}
-        onVolumeChange={(_, value) =>
-          setVolume(Array.isArray(value) ? value[0] : value)
-        }
         recordingMode={recordingMode}
         onRecordingModeChange={setRecordingMode}
         disabled={{

@@ -270,7 +270,7 @@ export const usePracticePlayback = (
     setIsPracticing(true)
 
     try {
-      await pitchDetection.start(ctx)
+      await pitchDetection.start()
     } catch {
       setIsPracticing(false)
       return
@@ -318,7 +318,7 @@ export const usePracticePlayback = (
 
     setIsPracticing(true)
     try {
-      await pitchDetection.start(ctx)
+      await pitchDetection.start()
     } catch {
       setIsPracticing(false)
       return

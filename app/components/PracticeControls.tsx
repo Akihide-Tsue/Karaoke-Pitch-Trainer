@@ -15,8 +15,6 @@ import FormControlLabel from "@mui/material/FormControlLabel"
  * @param onSeekForward - 秒送るボタンクリック時
  * @param useGuideVocal - ガイドボーカル ON かどうか
  * @param seekSeconds - 秒送り・戻しの単位（表示用）
- * @param volume - 再生音量（0〜1）
- * @param onVolumeChange - 音量変更時
  * @param recordingMode - 録音モード ON かどうか
  * @param onRecordingModeChange - 録音モード変更時
  * @param disabled - 各ボタンの無効化条件
@@ -30,8 +28,6 @@ export const PracticeControls = ({
   onSeekForward,
   useGuideVocal,
   seekSeconds,
-  volume,
-  onVolumeChange,
   recordingMode,
   onRecordingModeChange,
   disabled,
@@ -44,8 +40,6 @@ export const PracticeControls = ({
   onSeekForward: () => void
   useGuideVocal: boolean
   seekSeconds: number
-  volume: number
-  onVolumeChange: (_: Event, value: number | number[]) => void
   recordingMode: boolean
   onRecordingModeChange: (checked: boolean) => void
   disabled: {

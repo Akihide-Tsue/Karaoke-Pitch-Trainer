@@ -26,8 +26,8 @@ export interface UsePitchDetectionOptions {
 export interface UsePitchDetectionResult {
   /** マイク許可を事前に取得する（ストリームは即解放）。ページ表示時に呼ぶとダイアログを先に出せる */
   requestPermission: () => Promise<void>
-  /** 共有 AudioContext を渡してピッチ検出を開始する */
-  start: (sharedContext: AudioContext) => Promise<void>
+  /** ピッチ検出を開始する。マイク専用 AudioContext を内部で作成する */
+  start: () => Promise<void>
   stop: () => Promise<Blob | null>
 }
 
@@ -63,102 +63,97 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     }
   }, [onError])
 
-  const start = useCallback(
-    async (sharedContext: AudioContext) => {
-      latestMidiRef.current = 0
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-          },
-        })
-        streamRef.current = stream
+  const start = useCallback(async () => {
+    latestMidiRef.current = 0
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      })
+      streamRef.current = stream
 
-        // 共有 AudioContext を使用（所有権は呼び出し側）
-        const context = sharedContext
-        contextRef.current = context
-        if (context.state === "suspended") {
-          await context.resume()
-        }
-
-        const sampleRate = context.sampleRate
-
-        // AudioWorklet processor を登録（2回目以降は無視される）
-        await context.audioWorklet.addModule(processorUrl)
-
-        // pitch.worker.ts（YIN 計算用 Web Worker）を起動
-        const worker = new Worker(
-          new URL("./pitch.worker.ts", import.meta.url),
-          { type: "module" },
-        )
-        workerRef.current = worker
-        worker.onmessage = (
-          ev: MessageEvent<{ midi: number } | { error: string }>,
-        ) => {
-          if ("error" in ev.data) {
-            onError?.(new Error(ev.data.error))
-            return
-          }
-          latestMidiRef.current = ev.data.midi
-        }
-        worker.onerror = () => {
-          onError?.(new Error("ピッチ検出 Worker でエラーが発生しました"))
-        }
-
-        const source = context.createMediaStreamSource(stream)
-        sourceRef.current = source
-
-        const gain = context.createGain()
-        gain.gain.value = INPUT_GAIN
-        gainRef.current = gain
-
-        // AudioWorkletNode を作成し、worklet → worker へサンプルを転送
-        const workletNode = new AudioWorkletNode(context, "pitch-processor")
-        workletNodeRef.current = workletNode
-        workletNode.port.onmessage = (
-          ev: MessageEvent<{ samples: Float32Array; sampleRate: number }>,
-        ) => {
-          if (!workerRef.current) return
-          const { samples } = ev.data
-          workerRef.current.postMessage({ samples, sampleRate }, [
-            samples.buffer,
-          ])
-        }
-
-        source.connect(gain)
-        gain.connect(workletNode)
-        // destination に繋がないことで伴奏の出力に干渉しない
-        const dest = context.createMediaStreamDestination()
-        workletNode.connect(dest)
-
-        intervalIdRef.current = setInterval(() => {
-          const timeMs = getPlaybackPositionMs?.() ?? 0
-          onPitch(latestMidiRef.current, timeMs)
-        }, PITCH_INTERVAL_MS)
-
-        chunksRef.current = []
-        const recorder = new MediaRecorder(stream, {
-          mimeType: MediaRecorder.isTypeSupported("audio/webm")
-            ? "audio/webm"
-            : "audio/ogg",
-        })
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) chunksRef.current.push(e.data)
-        }
-        recorder.start(100)
-        recorderRef.current = recorder
-      } catch (err) {
-        if (workerRef.current) {
-          workerRef.current.terminate()
-          workerRef.current = null
-        }
-        onError?.(err instanceof Error ? err : new Error(String(err)))
+      // マイク専用 AudioContext をネイティブサンプルレートで作成
+      // （再生用 48kHz context と共有するとリサンプリングで信号が劣化するため）
+      const context = new AudioContext({ latencyHint: "interactive" })
+      contextRef.current = context
+      if (context.state === "suspended") {
+        await context.resume()
       }
-    },
-    [onPitch, getPlaybackPositionMs, onError],
-  )
+
+      const sampleRate = context.sampleRate
+
+      // AudioWorklet processor を登録（2回目以降は無視される）
+      await context.audioWorklet.addModule(processorUrl)
+
+      // pitch.worker.ts（YIN 計算用 Web Worker）を起動
+      const worker = new Worker(new URL("./pitch.worker.ts", import.meta.url), {
+        type: "module",
+      })
+      workerRef.current = worker
+      worker.onmessage = (
+        ev: MessageEvent<{ midi: number } | { error: string }>,
+      ) => {
+        if ("error" in ev.data) {
+          onError?.(new Error(ev.data.error))
+          return
+        }
+        latestMidiRef.current = ev.data.midi
+      }
+      worker.onerror = () => {
+        onError?.(new Error("ピッチ検出 Worker でエラーが発生しました"))
+      }
+
+      const source = context.createMediaStreamSource(stream)
+      sourceRef.current = source
+
+      const gain = context.createGain()
+      gain.gain.value = INPUT_GAIN
+      gainRef.current = gain
+
+      // AudioWorkletNode を作成し、worklet → worker へサンプルを転送
+      const workletNode = new AudioWorkletNode(context, "pitch-processor")
+      workletNodeRef.current = workletNode
+      workletNode.port.onmessage = (
+        ev: MessageEvent<{ samples: Float32Array; sampleRate: number }>,
+      ) => {
+        if (!workerRef.current) return
+        const { samples } = ev.data
+        workerRef.current.postMessage({ samples, sampleRate }, [samples.buffer])
+      }
+
+      source.connect(gain)
+      gain.connect(workletNode)
+      // destination に繋がないことで伴奏の出力に干渉しない
+      const dest = context.createMediaStreamDestination()
+      workletNode.connect(dest)
+
+      intervalIdRef.current = setInterval(() => {
+        const timeMs = getPlaybackPositionMs?.() ?? 0
+        onPitch(latestMidiRef.current, timeMs)
+      }, PITCH_INTERVAL_MS)
+
+      chunksRef.current = []
+      const recorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "audio/ogg",
+      })
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+      recorder.start(100)
+      recorderRef.current = recorder
+    } catch (err) {
+      if (workerRef.current) {
+        workerRef.current.terminate()
+        workerRef.current = null
+      }
+      onError?.(err instanceof Error ? err : new Error(String(err)))
+    }
+  }, [onPitch, getPlaybackPositionMs, onError])
 
   const stop = useCallback(async (): Promise<Blob | null> => {
     if (intervalIdRef.current) {
@@ -196,8 +191,10 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       for (const t of streamRef.current.getTracks()) t.stop()
       streamRef.current = null
     }
-    // 共有 AudioContext なので close しない（所有権は呼び出し側）
-    contextRef.current = null
+    if (contextRef.current) {
+      contextRef.current.close()
+      contextRef.current = null
+    }
     return blob
   }, [])
 

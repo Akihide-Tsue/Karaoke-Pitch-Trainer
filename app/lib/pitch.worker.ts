@@ -17,6 +17,7 @@ self.onmessage = (
   try {
     const { samples, sampleRate } = e.data
     if (!detectPitch) {
+      // マイク感度
       detectPitch = Pitchfinder.YIN({
         sampleRate,
         // YIN 自己相関の許容閾値（0〜1）。大きいほど弱い信号でも検出する。既定 0.1
