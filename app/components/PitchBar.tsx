@@ -1,6 +1,6 @@
 import Box from "@mui/material/Box"
 import type { ReactElement } from "react"
-import { useCallback, useRef } from "react"
+import { useCallback, useMemo, useRef } from "react"
 import {
   PITCH_BAR_LINE,
   PITCH_C_LINE,
@@ -12,17 +12,18 @@ import {
 } from "~/constants/colors"
 import { getTargetPitchAtTime, type MelodyNote } from "~/lib/melody"
 import { PITCH_INTERVAL_MS } from "~/lib/usePitchDetection"
+import type { PitchEntry } from "~/stores/practice"
 
 /** 音程バーに表示する小節数（UIで調整する想定） */
 const PITCH_BAR_WINDOW_BARS = 1
 
 /**
  * 五線譜風の音程バーコンポーネント。
- * 曲のメロディ（正解ノート）、歌唱ピッチ（50ms 刻み）、現在位置を表示する。
+ * 曲のメロディ（正解ノート）、歌唱ピッチ（PITCH_INTERVAL_MS 刻み）、現在位置を表示する。
  * 歌唱が正解と ±1 半音以内なら緑、それ以外はグレーで色分けする。
  *
  * @param notes - 曲のメロディノート配列
- * @param pitchData - 歌唱ピッチ（PITCH_INTERVAL_MS 刻みの MIDI ノート番号配列）
+ * @param pitchData - 歌唱ピッチ（再生位置 timeMs でタグ付けされた配列）
  * @param totalDurationMs - 曲の総再生時間（ミリ秒）
  * @param positionMs - 現在の再生位置（ミリ秒）
  * @param bpm - テンポ（小節線描画用）。省略時は 2000ms/小節
@@ -39,7 +40,7 @@ export const PitchBar = ({
   onViewDrag,
 }: {
   notes: MelodyNote[]
-  pitchData: number[]
+  pitchData: PitchEntry[]
   totalDurationMs: number
   positionMs: number
   bpm?: number
@@ -83,6 +84,122 @@ export const PitchBar = ({
 
   const msPerBar = bpm ? (60 * 1000 * 4) / bpm : 2000
 
+  const svgData = useMemo(() => {
+    if (!totalDurationMs || !notes.length) return null
+    const windowDurationMs = PITCH_BAR_WINDOW_BARS * msPerBar
+    const POSITION_RATIO = 1 / 3
+    const windowStartMs = Math.max(
+      0,
+      Math.min(
+        positionMs - windowDurationMs * POSITION_RATIO,
+        totalDurationMs - windowDurationMs,
+      ),
+    )
+    const windowEndMs = Math.min(
+      totalDurationMs,
+      windowStartMs + windowDurationMs,
+    )
+    const actualWindowMs = windowEndMs - windowStartMs
+    const PIXELS_PER_SEMITONE = 20
+    const padding = 8
+    const w = 1000
+
+    const visibleNotes = notes.filter(
+      (n) => n.endMs > windowStartMs && n.startMs < windowEndMs,
+    )
+    const minPitch = Math.min(...notes.map((n) => n.pitch))
+    const maxPitch = Math.max(...notes.map((n) => n.pitch))
+    const MAX_OCTAVES = 4
+    const OCTAVE_MARGIN_ABOVE = 2
+    const maxDisplaySemitones = MAX_OCTAVES * 12
+    const melodySpan = maxPitch - minPitch + 1
+    const centerPitch = (minPitch + maxPitch) / 2
+    let minPitchDisplay: number
+    let maxPitchDisplay: number
+    if (melodySpan > maxDisplaySemitones) {
+      minPitchDisplay = Math.round(centerPitch) - maxDisplaySemitones / 2
+      maxPitchDisplay = minPitchDisplay + maxDisplaySemitones - 1
+    } else {
+      const pad = Math.floor((maxDisplaySemitones - melodySpan) / 2)
+      minPitchDisplay = minPitch - pad
+      maxPitchDisplay = maxPitch + (maxDisplaySemitones - melodySpan - pad)
+    }
+    maxPitchDisplay += OCTAVE_MARGIN_ABOVE * 12
+    maxPitchDisplay -= 12
+    minPitchDisplay += 24
+    const pitchRange = maxPitchDisplay - minPitchDisplay + 1
+    const drawHeight = pitchRange * PIXELS_PER_SEMITONE
+    const totalHeight = drawHeight + 2 * padding
+
+    const scaleX = (ms: number) =>
+      actualWindowMs > 0 ? ((ms - windowStartMs) / actualWindowMs) * w : 0
+    const scaleY = (pitch: number) =>
+      totalHeight - padding - (pitch - minPitchDisplay) * PIXELS_PER_SEMITONE
+
+    const linePitches = Array.from(
+      { length: pitchRange },
+      (_, i) => minPitchDisplay + i,
+    )
+    const lines = linePitches.map((pitch) => ({ y: scaleY(pitch), pitch }))
+    const positionX = scaleX(positionMs)
+
+    const firstBar = Math.ceil(windowStartMs / msPerBar)
+    const lastBar = Math.floor(windowEndMs / msPerBar)
+    const barPositions: number[] = []
+    for (let i = firstBar; i <= lastBar; i++) {
+      barPositions.push(i * msPerBar)
+    }
+
+    const visiblePitches = pitchData.filter(
+      (e) => e.timeMs >= windowStartMs && e.timeMs < windowEndMs,
+    )
+    const singingBars: ReactElement[] = []
+    for (let i = 0; i < visiblePitches.length; i++) {
+      const { timeMs, midi } = visiblePitches[i]
+      if (midi <= 0 || midi < minPitchDisplay || midi > maxPitchDisplay) continue
+      const x = scaleX(timeMs)
+      const target = getTargetPitchAtTime(notes, timeMs)
+      const match = target != null && Math.abs(midi - target) <= 1
+      const fill = match ? PITCH_NOTE_MATCH : PITCH_NOTE_MISMATCH
+      const nextTimeMs =
+        visiblePitches[i + 1]?.timeMs ?? timeMs + PITCH_INTERVAL_MS
+      const barW = Math.max(2, scaleX(nextTimeMs) - x)
+      if (x + barW < 0 || x > w) continue
+      singingBars.push(
+        <rect
+          key={`sing-${timeMs}-${i}`}
+          x={x}
+          y={scaleY(midi) - 4}
+          width={barW}
+          height={8}
+          fill={fill}
+          rx={4}
+          ry={4}
+          opacity={0.9}
+        />,
+      )
+    }
+
+    return {
+      lines,
+      barPositions,
+      visibleNotes,
+      singingBars,
+      positionX,
+      totalHeight,
+      padding,
+      w,
+      scaleX,
+      scaleY,
+    }
+  }, [
+    notes,
+    pitchData,
+    totalDurationMs,
+    positionMs,
+    msPerBar,
+  ])
+
   if (!totalDurationMs || !notes.length) {
     return (
       <Box
@@ -93,101 +210,20 @@ export const PitchBar = ({
     )
   }
 
-  const windowDurationMs = PITCH_BAR_WINDOW_BARS * msPerBar
-  // 赤い縦線の位置を調整するための比率
-  const POSITION_RATIO = 1 / 3
-  const windowStartMs = Math.max(
-    0,
-    Math.min(
-      positionMs - windowDurationMs * POSITION_RATIO,
-      totalDurationMs - windowDurationMs,
-    ),
-  )
-  const windowEndMs = Math.min(
-    totalDurationMs,
-    windowStartMs + windowDurationMs,
-  )
-  const actualWindowMs = windowEndMs - windowStartMs
+  if (!svgData) return null
 
-  const visibleNotes = notes.filter(
-    (n) => n.endMs > windowStartMs && n.startMs < windowEndMs,
-  )
-  const minPitch = Math.min(...notes.map((n) => n.pitch))
-  const maxPitch = Math.max(...notes.map((n) => n.pitch))
-  const MAX_OCTAVES = 4
-  const OCTAVE_MARGIN_ABOVE = 2
-  const maxDisplaySemitones = MAX_OCTAVES * 12
-  const melodySpan = maxPitch - minPitch + 1
-  const centerPitch = (minPitch + maxPitch) / 2
-  let minPitchDisplay: number
-  let maxPitchDisplay: number
-  if (melodySpan > maxDisplaySemitones) {
-    minPitchDisplay = Math.round(centerPitch) - maxDisplaySemitones / 2
-    maxPitchDisplay = minPitchDisplay + maxDisplaySemitones - 1
-  } else {
-    const pad = Math.floor((maxDisplaySemitones - melodySpan) / 2)
-    minPitchDisplay = minPitch - pad
-    maxPitchDisplay = maxPitch + (maxDisplaySemitones - melodySpan - pad)
-  }
-  maxPitchDisplay += OCTAVE_MARGIN_ABOVE * 12
-  maxPitchDisplay -= 12
-  minPitchDisplay += 24
-  const pitchRange = maxPitchDisplay - minPitchDisplay + 1
-  const PIXELS_PER_SEMITONE = 20
-  const padding = 8
-  const w = 1000
-  const drawHeight = pitchRange * PIXELS_PER_SEMITONE
-  const totalHeight = drawHeight + 2 * padding
-  const scaleX = (ms: number) =>
-    actualWindowMs > 0 ? ((ms - windowStartMs) / actualWindowMs) * w : 0
-  const scaleY = (pitch: number) =>
-    totalHeight - padding - (pitch - minPitchDisplay) * PIXELS_PER_SEMITONE
-
-  const linePitches = Array.from(
-    { length: pitchRange },
-    (_, i) => minPitchDisplay + i,
-  )
-  const lines = linePitches.map((pitch) => ({ y: scaleY(pitch), pitch }))
-
-  const positionX = scaleX(positionMs)
-
-  const firstBar = Math.ceil(windowStartMs / msPerBar)
-  const lastBar = Math.floor(windowEndMs / msPerBar)
-  const barPositions: number[] = []
-  for (let i = firstBar; i <= lastBar; i++) {
-    barPositions.push(i * msPerBar)
-  }
-
-  const firstI = Math.ceil(windowStartMs / PITCH_INTERVAL_MS)
-  const lastI = Math.min(
-    Math.floor(windowEndMs / PITCH_INTERVAL_MS),
-    pitchData.length - 1,
-  )
-  const singingBars: ReactElement[] = []
-  for (let i = firstI; i <= lastI; i++) {
-    const midi = pitchData[i]
-    if (midi <= 0 || midi < minPitchDisplay || midi > maxPitchDisplay) continue
-    const timeMs = i * PITCH_INTERVAL_MS
-    const x = scaleX(timeMs)
-    const target = getTargetPitchAtTime(notes, timeMs)
-    const match = target != null && Math.abs(midi - target) <= 1
-    const fill = match ? PITCH_NOTE_MATCH : PITCH_NOTE_MISMATCH
-    const barW = Math.max(2, scaleX(timeMs + PITCH_INTERVAL_MS) - x)
-    if (x + barW < 0 || x > w) continue
-    singingBars.push(
-      <rect
-        key={`sing-${i}`}
-        x={x}
-        y={scaleY(midi) - 4}
-        width={barW}
-        height={8}
-        fill={fill}
-        rx={4}
-        ry={4}
-        opacity={0.9}
-      />,
-    )
-  }
+  const {
+    lines,
+    barPositions,
+    visibleNotes,
+    singingBars,
+    positionX,
+    totalHeight,
+    padding,
+    w,
+    scaleX,
+    scaleY,
+  } = svgData
 
   return (
     <Box

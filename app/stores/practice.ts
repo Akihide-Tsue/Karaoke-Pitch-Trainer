@@ -7,8 +7,11 @@ export const playbackPositionMsAtom = atom<number>(0)
 /** 曲データ（MelodyData） */
 export const melodyDataAtom = atom<MelodyData | null>(null)
 
-/** ピッチデータ（PITCH_INTERVAL_MS 刻みの MIDI 配列） */
-export const pitchDataAtom = atom<number[]>([])
+/** 歌唱ピッチ（再生位置 timeMs と MIDI の対。正確な同期のため） */
+export type PitchEntry = { timeMs: number; midi: number }
+
+/** ピッチデータ（実際の再生時刻でタグ付け） */
+export const pitchDataAtom = atom<PitchEntry[]>([])
 
 /** 練習中かどうか */
 export const isPracticingAtom = atom<boolean>(false)

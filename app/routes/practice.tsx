@@ -4,7 +4,7 @@ import Container from "@mui/material/Container"
 import Paper from "@mui/material/Paper"
 import Typography from "@mui/material/Typography"
 import { useAtomValue, useSetAtom } from "jotai"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router"
 import { LyricsPanel } from "~/components/LyricsPanel"
 import { PitchBar } from "~/components/PitchBar"
@@ -27,6 +27,7 @@ import {
   playbackPositionMsAtom,
   useGuideVocalAtom,
   volumeAtom,
+  type PitchEntry,
 } from "~/stores/practice"
 
 type LyricsJsonEntry = { time: number; lyric: string }
@@ -45,11 +46,28 @@ const Practice = () => {
   const positionMs = useAtomValue(playbackPositionMsAtom)
   const isPracticing = useAtomValue(isPracticingAtom)
 
+  const pitchBufferRef = useRef<PitchEntry[]>([])
+  const flushScheduledRef = useRef(false)
+  const PITCH_FLUSH_MS = 100
+  const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
+
   const pitchDetection = usePitchDetection({
     onPitch: useCallback(
-      (midi) => setPitchData((prev) => [...prev, midi]),
+      (midi: number, timeMs: number) => {
+        pitchBufferRef.current.push({ timeMs, midi })
+        if (!flushScheduledRef.current) {
+          flushScheduledRef.current = true
+          setTimeout(() => {
+            const batch = pitchBufferRef.current
+            pitchBufferRef.current = []
+            flushScheduledRef.current = false
+            setPitchData((prev) => [...prev, ...batch])
+          }, PITCH_FLUSH_MS)
+        }
+      },
       [setPitchData],
     ),
+    getPlaybackPositionMs: () => getPlaybackPositionMsRef.current(),
     onError: useCallback((err: Error) => {
       alert(`マイクの使用を許可してください。\n${err.message}`)
     }, []),
@@ -65,6 +83,11 @@ const Practice = () => {
     pitchDetection,
     volume,
   })
+
+  useEffect(() => {
+    getPlaybackPositionMsRef.current = () =>
+      (playback.instRef.current?.currentTime ?? 0) * 1000
+  }, [playback])
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -104,20 +127,17 @@ const Practice = () => {
   const handleSeekBackward = useCallback(() => {
     playback.seekBackward()
     if (!isPracticing) {
-      const newMs = Math.max(0, positionMs - playback.seekSeconds * 1000)
-      setViewPositionMs(newMs)
+      const sec = playback.instRef.current?.currentTime ?? 0
+      setViewPositionMs(sec * 1000)
     }
-  }, [playback, isPracticing, positionMs])
+  }, [playback, isPracticing])
   const handleSeekForward = useCallback(() => {
     playback.seekForward()
     if (!isPracticing) {
-      const newMs = Math.min(
-        totalDurationMs,
-        positionMs + playback.seekSeconds * 1000,
-      )
-      setViewPositionMs(newMs)
+      const sec = playback.instRef.current?.currentTime ?? 0
+      setViewPositionMs(sec * 1000)
     }
-  }, [playback, isPracticing, positionMs, totalDurationMs])
+  }, [playback, isPracticing])
 
   useEffect(() => {
     let cancelled = false

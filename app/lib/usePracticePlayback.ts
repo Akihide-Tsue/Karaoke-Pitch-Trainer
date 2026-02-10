@@ -1,4 +1,5 @@
 import type { MelodyData } from "~/lib/melody"
+import type { PitchEntry } from "~/stores/practice"
 import type { UsePitchDetectionResult } from "~/lib/usePitchDetection"
 import { useCallback, useEffect, useRef } from "react"
 
@@ -12,7 +13,7 @@ export interface UsePracticePlaybackOptions {
   useGuideVocal: boolean
   setUseGuideVocal: (fn: (v: boolean) => boolean) => void
   setPlaybackPosition: (ms: number) => void
-  setPitchData: React.Dispatch<React.SetStateAction<number[]>>
+  setPitchData: React.Dispatch<React.SetStateAction<PitchEntry[]>>
   setIsPracticing: (v: boolean) => void
   pitchDetection: UsePitchDetectionResult
   /** 再生音量（0.0〜1.0） */
@@ -38,7 +39,7 @@ export interface UsePracticePlaybackResult {
 /**
  * 練習画面の再生・録音・ピッチ検出を統合して管理するフック。
  * 伴奏／ガイドボーカルの再生、開始・停止・再開、シーク、ガイド切替を提供する。
- * requestAnimationFrame で再生位置を更新し、ended 時に自動で停止する。
+ * 音声要素の timeupdate で再生位置を更新し、ended 時に自動で停止する。
  *
  * @param options - 曲データ・状態セッター・ピッチ検出インスタンスなど
  * @returns instRef, vocalRef と再生コントロール用の関数群
@@ -59,7 +60,15 @@ export const usePracticePlayback = (
 
   const instRef = useRef<HTMLAudioElement | null>(null)
   const vocalRef = useRef<HTMLAudioElement | null>(null)
-  const positionRafRef = useRef<number | null>(null)
+
+  const onTimeUpdate = useCallback(() => {
+    const v = vocalRef.current
+    const i = instRef.current
+    const active = v && !v.paused ? v : i
+    if (active && !active.paused) {
+      setPlaybackPosition(active.currentTime * 1000)
+    }
+  }, [setPlaybackPosition])
 
   const startPlayback = useCallback(async () => {
     const inst = instRef.current
@@ -76,16 +85,8 @@ export const usePracticePlayback = (
     } else {
       inst.play().catch(() => {})
     }
-    const tick = () => {
-      const v = vocalRef.current
-      const i = instRef.current
-      const active = v && !v.paused ? v : i
-      if (active && !active.paused) {
-        setPlaybackPosition(active.currentTime * 1000)
-      }
-      positionRafRef.current = requestAnimationFrame(tick)
-    }
-    positionRafRef.current = requestAnimationFrame(tick)
+    inst.addEventListener("timeupdate", onTimeUpdate)
+    vocal.addEventListener("timeupdate", onTimeUpdate)
   }, [
     melodyData,
     useGuideVocal,
@@ -93,40 +94,33 @@ export const usePracticePlayback = (
     setPitchData,
     setIsPracticing,
     pitchDetection,
+    onTimeUpdate,
   ])
 
   const stopPlayback = useCallback(async () => {
-    instRef.current?.pause()
-    vocalRef.current?.pause()
+    const inst = instRef.current
+    const vocal = vocalRef.current
+    if (inst) inst.removeEventListener("timeupdate", onTimeUpdate)
+    if (vocal) vocal.removeEventListener("timeupdate", onTimeUpdate)
+    inst?.pause()
+    vocal?.pause()
     await pitchDetection.stop()
-    if (positionRafRef.current != null) {
-      cancelAnimationFrame(positionRafRef.current)
-      positionRafRef.current = null
-    }
     setIsPracticing(false)
-  }, [pitchDetection, setIsPracticing])
+  }, [pitchDetection, setIsPracticing, onTimeUpdate])
 
   const resumePlayback = useCallback(() => {
     const inst = instRef.current
     const vocal = vocalRef.current
     if (!inst || !vocal || !melodyData) return
     setIsPracticing(true)
+    inst.addEventListener("timeupdate", onTimeUpdate)
+    vocal.addEventListener("timeupdate", onTimeUpdate)
     if (useGuideVocal) {
       vocal.play().catch(() => {})
     } else {
       inst.play().catch(() => {})
     }
-    const tick = () => {
-      const v = vocalRef.current
-      const i = instRef.current
-      const active = v && !v.paused ? v : i
-      if (active && !active.paused) {
-        setPlaybackPosition(active.currentTime * 1000)
-      }
-      positionRafRef.current = requestAnimationFrame(tick)
-    }
-    positionRafRef.current = requestAnimationFrame(tick)
-  }, [melodyData, useGuideVocal, setPlaybackPosition, setIsPracticing])
+  }, [melodyData, useGuideVocal, setIsPracticing, onTimeUpdate])
 
   const toggleGuideVocal = useCallback(() => {
     const inst = instRef.current
@@ -210,12 +204,10 @@ export const usePracticePlayback = (
 
   useEffect(() => {
     return () => {
-      if (positionRafRef.current != null) {
-        cancelAnimationFrame(positionRafRef.current)
-        positionRafRef.current = null
-      }
+      instRef.current?.removeEventListener("timeupdate", onTimeUpdate)
+      vocalRef.current?.removeEventListener("timeupdate", onTimeUpdate)
     }
-  }, [])
+  }, [onTimeUpdate])
 
   return {
     instRef,
