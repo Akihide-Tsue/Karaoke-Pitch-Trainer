@@ -17,7 +17,10 @@ export const PITCH_INTERVAL_MS = 25
 const INPUT_GAIN = 5
 
 export interface UsePitchDetectionOptions {
-  onPitch: (midi: number) => void
+  /** 検出したピッチを渡す。timeMs は再生位置（伴奏の currentTime）を渡すと正確に同期する */
+  onPitch: (midi: number, timeMs: number) => void
+  /** 再生位置（ms）を返す関数。ピッチを正確な時刻でタグ付けするために使用 */
+  getPlaybackPositionMs?: () => number
   onError?: (error: Error) => void
 }
 
@@ -27,7 +30,7 @@ export interface UsePitchDetectionResult {
 }
 
 export const usePitchDetection = (options: UsePitchDetectionOptions) => {
-  const { onPitch, onError } = options
+  const { onPitch, getPlaybackPositionMs, onError } = options
   const streamRef = useRef<MediaStream | null>(null)
   const contextRef = useRef<AudioContext | null>(null)
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
@@ -79,7 +82,8 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       processor.connect(context.destination)
 
       intervalIdRef.current = setInterval(() => {
-        onPitch(latestMidiRef.current)
+        const timeMs = getPlaybackPositionMs?.() ?? 0
+        onPitch(latestMidiRef.current, timeMs)
       }, PITCH_INTERVAL_MS)
 
       chunksRef.current = []
@@ -96,7 +100,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     } catch (err) {
       onError?.(err instanceof Error ? err : new Error(String(err)))
     }
-  }, [onPitch, onError])
+  }, [onPitch, getPlaybackPositionMs, onError])
 
   const stop = useCallback(async (): Promise<Blob | null> => {
     if (intervalIdRef.current) {
