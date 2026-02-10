@@ -223,7 +223,10 @@ const Practice = () => {
     )
   }
 
-  if (playback.bufferLoadStatus === "idle" || playback.bufferLoadStatus === "loading") {
+  if (
+    playback.bufferLoadStatus === "idle" ||
+    playback.bufferLoadStatus === "loading"
+  ) {
     return (
       <Container maxWidth="md" sx={{ py: 3 }}>
         <Typography>曲を読み込み中…</Typography>
@@ -237,7 +240,15 @@ const Practice = () => {
         <Typography color="error">
           音声の読み込みに失敗しました: {playback.bufferLoadError}
         </Typography>
-        <Box sx={{ mt: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+        <Box
+          sx={{
+            mt: 2,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
           <Button
             variant="contained"
             onClick={() => playback.startLoading()}

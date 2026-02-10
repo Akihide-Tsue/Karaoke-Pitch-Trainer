@@ -1,9 +1,8 @@
-import type { MelodyData } from "~/lib/melody"
-import type { PitchEntry } from "~/stores/practice"
-import type { UsePitchDetectionResult } from "~/lib/usePitchDetection"
-
-import { loadAudioBuffer } from "~/lib/useAudioBufferLoader"
 import { useCallback, useEffect, useRef, useState } from "react"
+import type { MelodyData } from "~/lib/melody"
+import { loadAudioBuffer } from "~/lib/useAudioBufferLoader"
+import type { UsePitchDetectionResult } from "~/lib/usePitchDetection"
+import type { PitchEntry } from "~/stores/practice"
 
 const SEEK_SECONDS = 10
 
@@ -113,10 +112,7 @@ export const usePracticePlayback = (
 
     // resume() は再生開始時（startPlayback）に行う。
     // decodeAudioData は suspended な AudioContext でも動作する。
-    Promise.all([
-      loadAudioBuffer(instUrl, ctx),
-      loadAudioBuffer(vocalUrl, ctx),
-    ])
+    Promise.all([loadAudioBuffer(instUrl, ctx), loadAudioBuffer(vocalUrl, ctx)])
       .then(([instBuf, vocalBuf]) => {
         isLoadingRef.current = false
         if (loadingCancelledRef.current) return
@@ -128,9 +124,7 @@ export const usePracticePlayback = (
       .catch((err) => {
         isLoadingRef.current = false
         if (!loadingCancelledRef.current) {
-          setBufferLoadError(
-            err instanceof Error ? err.message : String(err),
-          )
+          setBufferLoadError(err instanceof Error ? err.message : String(err))
           setBufferLoadStatus("error")
         }
         ctx.close()
@@ -225,7 +219,10 @@ export const usePracticePlayback = (
 
   // --- onended ハンドラ用ヘルパー ---
   const makeOnEnded = useCallback(
-    (sourceRef: React.RefObject<AudioBufferSourceNode | null>, src: AudioBufferSourceNode) => {
+    (
+      sourceRef: React.RefObject<AudioBufferSourceNode | null>,
+      src: AudioBufferSourceNode,
+    ) => {
       return () => {
         if (playingRef.current && sourceRef.current === src) {
           stopPlaybackInternalRef.current()

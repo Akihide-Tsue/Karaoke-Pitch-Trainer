@@ -1,5 +1,5 @@
 import CssBaseline from "@mui/material/CssBaseline"
-import { ThemeProvider, createTheme } from "@mui/material/styles"
+import { createTheme, ThemeProvider } from "@mui/material/styles"
 import {
   isRouteErrorResponse,
   Links,
@@ -8,9 +8,8 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router"
-
-import type { Route } from "./+types/root"
 import { WHITE } from "~/constants/colors"
+import type { Route } from "./+types/root"
 import "./app.css"
 
 const theme = createTheme({

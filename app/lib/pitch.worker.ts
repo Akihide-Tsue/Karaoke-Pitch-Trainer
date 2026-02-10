@@ -11,14 +11,18 @@ const frequencyToMidi = (frequency: number): number => {
 
 let detectPitch: ((samples: Float32Array) => number | null) | null = null
 
-self.onmessage = (e: MessageEvent<{ samples: Float32Array; sampleRate: number }>) => {
+self.onmessage = (
+  e: MessageEvent<{ samples: Float32Array; sampleRate: number }>,
+) => {
   try {
     const { samples, sampleRate } = e.data
     if (!detectPitch) {
       detectPitch = Pitchfinder.YIN({
         sampleRate,
-        threshold: 0.03,
-        probabilityThreshold: 0.03,
+        // YIN 自己相関の許容閾値（0〜1）。大きいほど弱い信号でも検出する。既定 0.1
+        threshold: 0.15,
+        // 検出結果を採用する最低確率（0〜1）。低いほど不確実な検出も返す
+        probabilityThreshold: 0.1,
       })
     }
     const freq = detectPitch(samples)

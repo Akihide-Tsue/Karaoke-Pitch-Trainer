@@ -25,7 +25,10 @@ async function getMidiClass(): Promise<{
   const Midi =
     (raw as { Midi?: { fromUrl?: unknown } }).Midi ??
     (raw as { fromUrl?: unknown })
-  if (typeof (Midi as { fromUrl?: (u: string) => Promise<unknown> })?.fromUrl !== "function") {
+  if (
+    typeof (Midi as { fromUrl?: (u: string) => Promise<unknown> })?.fromUrl !==
+    "function"
+  ) {
     throw new Error("MIDI ライブラリの読み込みに失敗しました")
   }
   return Midi as {

@@ -4,10 +4,7 @@ import Container from "@mui/material/Container"
 import Paper from "@mui/material/Paper"
 import Typography from "@mui/material/Typography"
 import { Link } from "react-router"
-import {
-  CHECK_CIRCLE_FILL,
-  CHECK_CIRCLE_STROKE,
-} from "~/constants/colors"
+import { CHECK_CIRCLE_FILL, CHECK_CIRCLE_STROKE } from "~/constants/colors"
 import { SONG_TITLE } from "~/constants/songs/brand-new-music"
 import type { Route } from "./+types/home"
 

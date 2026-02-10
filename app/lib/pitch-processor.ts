@@ -35,10 +35,7 @@ class PitchProcessor extends AudioWorkletProcessor {
 
       if (this.offset >= BUFFER_SIZE) {
         const copy = new Float32Array(this.buffer)
-        this.port.postMessage(
-          { samples: copy, sampleRate },
-          [copy.buffer],
-        )
+        this.port.postMessage({ samples: copy, sampleRate }, [copy.buffer])
         this.offset = 0
       }
     }

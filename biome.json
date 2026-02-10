@@ -1,5 +1,17 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!node_modules",
+      "!**/.pnpm-store",
+      "!.pnpm-store",
+      "!.react-router",
+      "!build",
+      "!**/build"
+    ]
+  },
   "assist": {
     "actions": {
       "source": {

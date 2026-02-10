@@ -226,8 +226,8 @@ export const PitchBar = ({
   } = svgData
 
   // 位置線は SVG と同じ scaleX を使い、赤い線と現在位置・描画内容を一致させる
-  const rawPositionX = scaleX(positionMs)
-  const positionPct = Math.max(0, Math.min(100, (rawPositionX / w) * 100))
+  // const rawPositionX = scaleX(positionMs)
+  // const positionPct = Math.max(0, Math.min(100, (rawPositionX / w) * 100))
 
   return (
     <Box
