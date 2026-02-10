@@ -29,16 +29,16 @@ export interface UsePracticePlaybackOptions {
 /**
  * usePracticePlayback の戻り値
  */
-/** 音声バッファのロード状態（iOS ではユーザー操作後に startLoading で開始すること） */
+/** 音声バッファのロード状態 */
 export type BufferLoadStatus = "idle" | "loading" | "loaded" | "error"
 
 export interface UsePracticePlaybackResult {
   isLoaded: boolean
-  /** 音声ロード状態。idle のときは「曲を読み込む」ボタンで startLoading() を呼ぶ（iOS 対応） */
+  /** 音声ロード状態 */
   bufferLoadStatus: BufferLoadStatus
   /** 音声バッファのロードに失敗した場合のエラーメッセージ */
   bufferLoadError: string | null
-  /** ユーザー操作後に音声を読み込む（iOS Safari ではタップ後に呼ぶ必要あり） */
+  /** 音声バッファの読み込みを開始する */
   startLoading: () => void
   getPlaybackPositionMs: () => number
   startPlayback: () => Promise<void>
@@ -77,7 +77,7 @@ export const usePracticePlayback = (
   const instGainRef = useRef<GainNode | null>(null)
   const vocalGainRef = useRef<GainNode | null>(null)
 
-  // --- AudioBuffer のロード（ユーザー操作後に startLoading で開始。iOS Safari 対応） ---
+  // --- AudioBuffer のロード ---
   const instBufferRef = useRef<AudioBuffer | null>(null)
   const vocalBufferRef = useRef<AudioBuffer | null>(null)
   const [bufferLoadStatus, setBufferLoadStatus] = useState<
@@ -85,9 +85,10 @@ export const usePracticePlayback = (
   >("idle")
   const [bufferLoadError, setBufferLoadError] = useState<string | null>(null)
   const loadingCancelledRef = useRef(false)
+  const isLoadingRef = useRef(false)
 
   const startLoading = useCallback(() => {
-    if (bufferLoadStatus === "loading") return
+    if (isLoadingRef.current) return
     // 再試行時は前の context を閉じる
     if (contextRef.current) {
       contextRef.current.close()
@@ -98,7 +99,6 @@ export const usePracticePlayback = (
 
     const ctx = new AudioContext({ sampleRate: 48000 })
     contextRef.current = ctx
-    console.log("[startLoading] AudioContext created, state:", ctx.state, "sampleRate:", ctx.sampleRate)
     const ig = ctx.createGain()
     ig.connect(ctx.destination)
     instGainRef.current = ig
@@ -106,23 +106,19 @@ export const usePracticePlayback = (
     vg.connect(ctx.destination)
     vocalGainRef.current = vg
 
+    isLoadingRef.current = true
     loadingCancelledRef.current = false
     setBufferLoadStatus("loading")
     setBufferLoadError(null)
 
-    // iOS Safari では AudioContext が suspended 状態で作られるため、
-    // ユーザー操作のタイミングで resume() してから読み込む
-    console.log("[startLoading] ctx.state before resume:", ctx.state)
-    const ready = ctx.state === "suspended" ? ctx.resume() : Promise.resolve()
-    ready.then(() => {
-      console.log("[startLoading] ready resolved, ctx.state:", ctx.state, "loading buffers...")
-      return Promise.all([
-        loadAudioBuffer(instUrl, ctx),
-        loadAudioBuffer(vocalUrl, ctx),
-      ])
-    })
+    // resume() は再生開始時（startPlayback）に行う。
+    // decodeAudioData は suspended な AudioContext でも動作する。
+    Promise.all([
+      loadAudioBuffer(instUrl, ctx),
+      loadAudioBuffer(vocalUrl, ctx),
+    ])
       .then(([instBuf, vocalBuf]) => {
-        console.log("[startLoading] both buffers loaded!")
+        isLoadingRef.current = false
         if (loadingCancelledRef.current) return
         instBufferRef.current = instBuf
         vocalBufferRef.current = vocalBuf
@@ -130,7 +126,7 @@ export const usePracticePlayback = (
         setBufferLoadStatus("loaded")
       })
       .catch((err) => {
-        console.error("[startLoading] error:", err)
+        isLoadingRef.current = false
         if (!loadingCancelledRef.current) {
           setBufferLoadError(
             err instanceof Error ? err.message : String(err),
@@ -144,7 +140,7 @@ export const usePracticePlayback = (
           vocalGainRef.current = null
         }
       })
-  }, [instUrl, vocalUrl, bufferLoadStatus])
+  }, [instUrl, vocalUrl])
 
   useEffect(() => {
     return () => {

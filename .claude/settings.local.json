@@ -19,7 +19,11 @@
       "Bash(git -C /Users/akihidetsue/work/pitch-poc log --oneline -3 origin/main)",
       "Bash(git -C /Users/akihidetsue/work/pitch-poc log --oneline -3 main)",
       "Bash(xargs ls:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)",
+      "Bash(afconvert:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: 音声ファイルをWAV→AAC\\(m4a\\)に変換しiOS/Androidの読み込み失敗を修正\n\nWAVファイルが70MB+79MB=149MBと巨大でモバイルブラウザの\nメモリ制限によりarrayBuffer\\(\\)が失敗していた。\nAAC\\(m4a\\)に変換し合計17MBに圧縮。\n\n- WAV→AAC\\(m4a\\)変換（256kbps）\n- iOS分岐の自動ロードスキップを削除（全端末で自動ロード）\n- 手動ロードボタンUIを削除\n- decodeAudioDataをコールバック版に変更+30秒タイムアウト追加\n- AudioContext.resume\\(\\)はstartPlayback時のみに統一\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

@@ -101,14 +101,10 @@ const Practice = () => {
     getPlaybackPositionMsRef.current = playback.getPlaybackPositionMs
   }, [playback])
 
-  // iOS ではユーザー操作なしの startLoading が完了しないため、自動試行は行わない。それ以外では setTimeout で 1 回だけ試行
+  // 音声バッファの自動ロード（1 回だけ）
   const hasAutoLoadScheduledRef = useRef(false)
   useEffect(() => {
     if (hasAutoLoadScheduledRef.current) return
-    const isIos =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-    if (isIos) return
     hasAutoLoadScheduledRef.current = true
     const t = setTimeout(() => {
       playback.startLoading()
@@ -227,29 +223,7 @@ const Practice = () => {
     )
   }
 
-  if (playback.bufferLoadStatus === "idle") {
-    return (
-      <Container maxWidth="md" sx={{ py: 3 }}>
-        <Typography sx={{ mb: 2 }}>
-          音声を読み込むには下のボタンを押してください。（iPhone では必要です）
-        </Typography>
-        <Button
-          variant="contained"
-          onClick={() => playback.startLoading()}
-          sx={{ fontWeight: "bold" }}
-        >
-          曲を読み込む
-        </Button>
-        <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
-          <Button component={Link} to="/" sx={{ fontWeight: "bold" }}>
-            ← ホームへ
-          </Button>
-        </Box>
-      </Container>
-    )
-  }
-
-  if (playback.bufferLoadStatus === "loading") {
+  if (playback.bufferLoadStatus === "idle" || playback.bufferLoadStatus === "loading") {
     return (
       <Container maxWidth="md" sx={{ py: 3 }}>
         <Typography>曲を読み込み中…</Typography>
