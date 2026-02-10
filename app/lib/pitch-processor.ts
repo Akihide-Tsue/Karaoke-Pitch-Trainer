@@ -15,6 +15,7 @@ declare function registerProcessor(
   processorCtor: typeof AudioWorkletProcessor,
 ): void
 
+/** バッファサイズ。小さいほど検出頻度が上がるが、低音の精度が下がる */
 const BUFFER_SIZE = 2048
 
 class PitchProcessor extends AudioWorkletProcessor {
