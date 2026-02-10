@@ -98,6 +98,7 @@ export const usePracticePlayback = (
 
     const ctx = new AudioContext({ sampleRate: 48000 })
     contextRef.current = ctx
+    console.log("[startLoading] AudioContext created, state:", ctx.state, "sampleRate:", ctx.sampleRate)
     const ig = ctx.createGain()
     ig.connect(ctx.destination)
     instGainRef.current = ig
@@ -111,14 +112,17 @@ export const usePracticePlayback = (
 
     // iOS Safari では AudioContext が suspended 状態で作られるため、
     // ユーザー操作のタイミングで resume() してから読み込む
+    console.log("[startLoading] ctx.state before resume:", ctx.state)
     const ready = ctx.state === "suspended" ? ctx.resume() : Promise.resolve()
-    ready.then(() =>
-      Promise.all([
+    ready.then(() => {
+      console.log("[startLoading] ready resolved, ctx.state:", ctx.state, "loading buffers...")
+      return Promise.all([
         loadAudioBuffer(instUrl, ctx),
         loadAudioBuffer(vocalUrl, ctx),
       ])
-    )
+    })
       .then(([instBuf, vocalBuf]) => {
+        console.log("[startLoading] both buffers loaded!")
         if (loadingCancelledRef.current) return
         instBufferRef.current = instBuf
         vocalBufferRef.current = vocalBuf
@@ -126,6 +130,7 @@ export const usePracticePlayback = (
         setBufferLoadStatus("loaded")
       })
       .catch((err) => {
+        console.error("[startLoading] error:", err)
         if (!loadingCancelledRef.current) {
           setBufferLoadError(
             err instanceof Error ? err.message : String(err),
