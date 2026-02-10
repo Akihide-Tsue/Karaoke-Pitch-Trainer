@@ -21,6 +21,10 @@ pnpm dev
 
 ローカルで起動後: <http://localhost:5173>
 
+## デプロイ
+
+- <https://pitchpoc.vercel.app/>
+
 ## メモ
 
 - npx create-react-router@latest
