@@ -1,14 +1,11 @@
 /**
- * Web Audio API + pitchfinder によるピッチ検出
+ * Web Audio API + pitchfinder によるピッチ検出（Web Worker でピッチ計算）
  * MediaRecorder による録音
  * PITCH_INTERVAL_MS 間隔で MIDI ノート番号を取得し、コールバックで渡す
  *
- * メモ: ScriptProcessorNode は非推奨だが多くの環境で動作。PoC ではこのままでよい。
- * 将来: AudioWorklet への移行、または Web Worker + WASM でメインスレッド負荷を下げる検討（plan.md 6.4）。
+ * ピッチ検出は pitch.worker.ts 内で実行し、メインスレッドのブロックを避ける（plan.md 6.4）。
  */
-import * as Pitchfinder from "pitchfinder"
 import { useCallback, useRef } from "react"
-import { frequencyToMidi } from "~/lib/pitch"
 
 /** 小さいほど遅延減、大きいほど低音の検出精度向上。2048 は iOS で安定しやすい */
 const BUFFER_SIZE = 2048
@@ -39,6 +36,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const gainRef = useRef<GainNode | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
+  const workerRef = useRef<Worker | null>(null)
   const latestMidiRef = useRef<number>(0)
   const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -66,6 +64,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   }, [onError])
 
   const start = useCallback(async () => {
+    latestMidiRef.current = 0
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
@@ -78,6 +77,22 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
 
       const sampleRate = context.sampleRate
 
+      const worker = new Worker(
+        new URL("./pitch.worker.ts", import.meta.url),
+        { type: "module" },
+      )
+      workerRef.current = worker
+      worker.onmessage = (ev: MessageEvent<{ midi: number } | { error: string }>) => {
+        if ("error" in ev.data) {
+          onError?.(new Error(ev.data.error))
+          return
+        }
+        latestMidiRef.current = ev.data.midi
+      }
+      worker.onerror = () => {
+        onError?.(new Error("ピッチ検出 Worker でエラーが発生しました"))
+      }
+
       const source = context.createMediaStreamSource(stream)
       sourceRef.current = source
 
@@ -88,17 +103,12 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       const processor = context.createScriptProcessor(BUFFER_SIZE, 1, 1)
       processorRef.current = processor
 
-      const detectPitch = Pitchfinder.YIN({
-        sampleRate,
-        threshold: 0.03,
-        probabilityThreshold: 0.03,
-      })
-
       processor.onaudioprocess = (e) => {
+        if (!workerRef.current) return
         const input = e.inputBuffer.getChannelData(0)
-        const freq = detectPitch(input)
-        const midi = freq ? Math.round(frequencyToMidi(freq)) : 0
-        latestMidiRef.current = midi
+        const copy = new Float32Array(input.length)
+        copy.set(input)
+        workerRef.current.postMessage({ samples: copy, sampleRate }, [copy.buffer])
       }
 
       source.connect(gain)
@@ -122,6 +132,10 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       recorder.start(100)
       recorderRef.current = recorder
     } catch (err) {
+      if (workerRef.current) {
+        workerRef.current.terminate()
+        workerRef.current = null
+      }
       onError?.(err instanceof Error ? err : new Error(String(err)))
     }
   }, [onPitch, getPlaybackPositionMs, onError])
@@ -147,13 +161,17 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     }
     recorderRef.current = null
     if (processorRef.current && sourceRef.current) {
+      processorRef.current.onaudioprocess = null
       sourceRef.current.disconnect()
       gainRef.current?.disconnect()
       processorRef.current.disconnect()
-      processorRef.current.onaudioprocess = null
       processorRef.current = null
       gainRef.current = null
       sourceRef.current = null
+    }
+    if (workerRef.current) {
+      workerRef.current.terminate()
+      workerRef.current = null
     }
     if (streamRef.current) {
       for (const t of streamRef.current.getTracks()) t.stop()

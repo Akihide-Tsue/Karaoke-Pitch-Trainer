@@ -15,7 +15,7 @@ import { PITCH_INTERVAL_MS } from "~/lib/usePitchDetection"
 import type { PitchEntry } from "~/stores/practice"
 
 /** 音程バーに表示する小節数。2にすると「現在」の前後が十分見えて歌唱がリアルタイムで見える */
-const PITCH_BAR_WINDOW_BARS = 1
+const PITCH_BAR_WINDOW_BARS = 1.5
 /** ウィンドウ更新の刻み（ms）。小さいほどスムーズ、大きいほど再計算を抑制 */
 const POSITION_TICK_MS = 16
 /** ドラッグ感度。1幅分のドラッグでパンする小節数。大きくすると少ないドラッグで大きく移動 */
