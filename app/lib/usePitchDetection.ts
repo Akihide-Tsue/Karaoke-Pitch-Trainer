@@ -26,7 +26,8 @@ export interface UsePitchDetectionOptions {
 export interface UsePitchDetectionResult {
   /** マイク許可を事前に取得する（ストリームは即解放）。ページ表示時に呼ぶとダイアログを先に出せる */
   requestPermission: () => Promise<void>
-  start: () => Promise<void>
+  /** 共有 AudioContext を渡してピッチ検出を開始する */
+  start: (sharedContext: AudioContext) => Promise<void>
   stop: () => Promise<Blob | null>
 }
 
@@ -62,7 +63,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     }
   }, [onError])
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (sharedContext: AudioContext) => {
     latestMidiRef.current = 0
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -74,11 +75,8 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       })
       streamRef.current = stream
 
-      // デバイスのデフォルトサンプルレートに合わせてブラウザ側のリサンプリングを最小化
-      const context = new AudioContext({
-        latencyHint: "interactive",
-        sampleRate: 48000,
-      })
+      // 共有 AudioContext を使用（所有権は呼び出し側）
+      const context = sharedContext
       contextRef.current = context
       if (context.state === "suspended") {
         await context.resume()
@@ -86,7 +84,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
 
       const sampleRate = context.sampleRate
 
-      // AudioWorklet processor を登録
+      // AudioWorklet processor を登録（2回目以降は無視される）
       await context.audioWorklet.addModule(processorUrl)
 
       // pitch.worker.ts（YIN 計算用 Web Worker）を起動
@@ -124,7 +122,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
 
       source.connect(gain)
       gain.connect(workletNode)
-      // destination に繋がないことで <audio> の出力に干渉しない
+      // destination に繋がないことで伴奏の出力に干渉しない
       const dest = context.createMediaStreamDestination()
       workletNode.connect(dest)
 
@@ -189,10 +187,8 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       for (const t of streamRef.current.getTracks()) t.stop()
       streamRef.current = null
     }
-    if (contextRef.current) {
-      contextRef.current.close()
-      contextRef.current = null
-    }
+    // 共有 AudioContext なので close しない（所有権は呼び出し側）
+    contextRef.current = null
     return blob
   }, [])
 

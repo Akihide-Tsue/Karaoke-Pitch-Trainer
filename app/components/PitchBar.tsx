@@ -40,6 +40,7 @@ export const PitchBar = ({
   totalDurationMs,
   positionMs,
   bpm,
+  barOffsetMs = 0,
   height = 120,
   onViewDrag,
 }: {
@@ -48,6 +49,7 @@ export const PitchBar = ({
   totalDurationMs: number
   positionMs: number
   bpm?: number
+  barOffsetMs?: number
   height?: number
   onViewDrag?: (timeMs: number) => void
 }) => {
@@ -148,11 +150,11 @@ export const PitchBar = ({
     )
     const lines = linePitches.map((pitch) => ({ y: scaleY(pitch), pitch }))
 
-    const firstBar = Math.ceil(windowStartMs / msPerBar)
-    const lastBar = Math.floor(windowEndMs / msPerBar)
+    const firstBar = Math.ceil((windowStartMs - barOffsetMs) / msPerBar)
+    const lastBar = Math.floor((windowEndMs - barOffsetMs) / msPerBar)
     const barPositions: number[] = []
     for (let i = firstBar; i <= lastBar; i++) {
-      barPositions.push(i * msPerBar)
+      barPositions.push(barOffsetMs + i * msPerBar)
     }
 
     const visiblePitches = pitchData.filter(
@@ -197,7 +199,7 @@ export const PitchBar = ({
       scaleX,
       scaleY,
     }
-  }, [notes, pitchData, totalDurationMs, positionTick, msPerBar])
+  }, [notes, pitchData, totalDurationMs, positionTick, msPerBar, barOffsetMs])
 
   if (!totalDurationMs || !notes.length) {
     return (

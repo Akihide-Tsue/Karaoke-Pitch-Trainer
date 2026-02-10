@@ -55,6 +55,7 @@ const Practice = () => {
 
   const pitchBufferRef = useRef<PitchEntry[]>([])
   const flushScheduledRef = useRef(false)
+  // playback.getPlaybackPositionMs を ref 経由で pitchDetection に渡す
   const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
 
   const pitchDetection = usePitchDetection({
@@ -91,15 +92,13 @@ const Practice = () => {
     setIsPracticing,
     pitchDetection,
     volume,
+    instUrl: INST_AUDIO_URL,
+    vocalUrl: VOCAL_AUDIO_URL,
   })
 
+  // playback 初期化後に ref を更新
   useEffect(() => {
-    getPlaybackPositionMsRef.current = () => {
-      const v = playback.vocalRef.current
-      const i = playback.instRef.current
-      const active = v && !v.paused ? v : i
-      return (active?.currentTime ?? 0) * 1000
-    }
+    getPlaybackPositionMsRef.current = playback.getPlaybackPositionMs
   }, [playback])
 
   // 練習ページを開いたタイミングでマイク許可を取得（開始ボタン押下時にダイアログが出ないようにする）
@@ -123,12 +122,12 @@ const Practice = () => {
     if (!isPracticing) return
     let rafId: number
     const tick = () => {
-      setSmoothPositionMs(getPlaybackPositionMsRef.current())
+      setSmoothPositionMs(playback.getPlaybackPositionMs())
       rafId = requestAnimationFrame(tick)
     }
     rafId = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafId)
-  }, [isPracticing])
+  }, [isPracticing, playback])
 
   // キーボードの音量キー（VolumeUp/VolumeDown/VolumeMute）でアプリ音量とUIスライダーを連動
   useEffect(() => {
@@ -161,16 +160,14 @@ const Practice = () => {
   const handleSeekBackward = useCallback(() => {
     playback.seekBackward()
     if (!isPracticing) {
-      const sec = playback.instRef.current?.currentTime ?? 0
-      setViewPositionMs(sec * 1000)
+      setViewPositionMs(playback.getPlaybackPositionMs())
     }
   }, [playback, isPracticing])
 
   const handleSeekForward = useCallback(() => {
     playback.seekForward()
     if (!isPracticing) {
-      const sec = playback.instRef.current?.currentTime ?? 0
-      setViewPositionMs(sec * 1000)
+      setViewPositionMs(playback.getPlaybackPositionMs())
     }
   }, [playback, isPracticing])
 
@@ -207,7 +204,7 @@ const Practice = () => {
     }
   }, [setMelodyData])
 
-  if (loading) {
+  if (loading || !playback.isLoaded) {
     return (
       <Container maxWidth="md" sx={{ py: 3 }}>
         <Typography>曲を読み込み中…</Typography>
@@ -266,21 +263,6 @@ const Practice = () => {
         <MicDelaySettings />
       </Box>
 
-      <audio
-        ref={playback.instRef}
-        src={INST_AUDIO_URL}
-        aria-label="伴奏（オケ）"
-      >
-        <track kind="captions" />
-      </audio>
-      <audio
-        ref={playback.vocalRef}
-        src={VOCAL_AUDIO_URL}
-        aria-label="ガイド(歌あり)"
-      >
-        <track kind="captions" />
-      </audio>
-
       {/* 練習画面のコントロールボタン群 */}
       <PracticeControls
         onStart={handleStart}
@@ -314,6 +296,7 @@ const Practice = () => {
             totalDurationMs={totalDurationMs}
             positionMs={isPracticing ? smoothPositionMs : viewPositionMs}
             bpm={melodyData?.bpm}
+            barOffsetMs={melodyData?.barOffsetMs}
             onViewDrag={!isPracticing ? setViewPositionMs : undefined}
           />
         </Box>

@@ -88,12 +88,20 @@ export async function parseMidiToMelodyData(
         : keySig.key
       : undefined
 
+  // 小節線の起点: 最初のノート位置を1小節の長さで割った余り
+  let barOffsetMs: number | undefined
+  if (bpm && notes.length > 0) {
+    const msPerBar = (60 * 1000 * 4) / bpm
+    barOffsetMs = notes[0].startMs % msPerBar
+  }
+
   return {
     songId,
     totalDurationMs,
     trackName: track.name,
     notes,
     bpm,
+    barOffsetMs,
     key,
   }
 }
