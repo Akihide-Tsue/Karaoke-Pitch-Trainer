@@ -28,7 +28,7 @@ export interface UsePracticePlaybackResult {
   vocalRef: React.RefObject<HTMLAudioElement | null>
   startPlayback: () => Promise<void>
   stopPlayback: () => Promise<void>
-  resumePlayback: () => void
+  resumePlayback: () => Promise<void>
   seekBackward: () => void
   seekForward: () => void
   seekToMs: (timeMs: number) => void
@@ -108,11 +108,17 @@ export const usePracticePlayback = (
     setIsPracticing(false)
   }, [pitchDetection, setIsPracticing, onTimeUpdate])
 
-  const resumePlayback = useCallback(() => {
+  const resumePlayback = useCallback(async () => {
     const inst = instRef.current
     const vocal = vocalRef.current
     if (!inst || !vocal || !melodyData) return
     setIsPracticing(true)
+    try {
+      await pitchDetection.start()
+    } catch {
+      setIsPracticing(false)
+      return
+    }
     inst.addEventListener("timeupdate", onTimeUpdate)
     vocal.addEventListener("timeupdate", onTimeUpdate)
     if (useGuideVocal) {
@@ -120,7 +126,7 @@ export const usePracticePlayback = (
     } else {
       inst.play().catch(() => {})
     }
-  }, [melodyData, useGuideVocal, setIsPracticing, onTimeUpdate])
+  }, [melodyData, useGuideVocal, setIsPracticing, pitchDetection, onTimeUpdate])
 
   const toggleGuideVocal = useCallback(() => {
     const inst = instRef.current

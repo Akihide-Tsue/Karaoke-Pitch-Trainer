@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm run typecheck:*)",
+      "Bash(pnpm run build:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:vite.dev)",
+      "Bash(git -C /Users/akihidetsue/work/pitch-poc status)",
+      "Bash(git -C /Users/akihidetsue/work/pitch-poc diff)",
+      "Bash(git -C /Users/akihidetsue/work/pitch-poc log --oneline -5)",
+      "Bash(git -C /Users/akihidetsue/work/pitch-poc diff --cached)",
+      "Bash(git -C /Users/akihidetsue/work/pitch-poc add app/lib/pitch-processor.ts app/lib/usePitchDetection.ts app/lib/usePracticePlayback.ts)"
+    ]
+  }
+}
