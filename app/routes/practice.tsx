@@ -1,5 +1,6 @@
 import Box from "@mui/material/Box"
 import Button from "@mui/material/Button"
+import CircularProgress from "@mui/material/CircularProgress"
 import Container from "@mui/material/Container"
 import Paper from "@mui/material/Paper"
 import Typography from "@mui/material/Typography"
@@ -101,6 +102,7 @@ const Practice = () => {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [viewPositionMs, setViewPositionMs] = useState(0)
+  const [isStartingPlayback, setIsStartingPlayback] = useState(false)
 
   useEffect(() => {
     if (!isPracticing) setViewPositionMs(positionMs)
@@ -147,6 +149,15 @@ const Practice = () => {
       setViewPositionMs(sec * 1000)
     }
   }, [playback, isPracticing])
+
+  const handleStart = useCallback(async () => {
+    setIsStartingPlayback(true)
+    try {
+      await playback.startPlayback()
+    } finally {
+      setIsStartingPlayback(false)
+    }
+  }, [playback])
 
   useEffect(() => {
     let cancelled = false
@@ -197,7 +208,25 @@ const Practice = () => {
   const lyricLines = getLyricLines(lyrics, positionMs)
 
   return (
-    <Container maxWidth="md" sx={{ py: 3 }}>
+    <Container maxWidth="md" sx={{ py: 3, position: "relative" }}>
+      {/* 開始ボタン押下〜ピッチ検出完了まで最前面にローディング表示 */}
+      {isStartingPlayback && (
+        <Box
+          sx={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          aria-busy
+          aria-live="polite"
+        >
+          <CircularProgress size={48} />
+        </Box>
+      )}
+
       <Typography component="h1" variant="h6" gutterBottom>
         練習画面
       </Typography>
@@ -219,7 +248,7 @@ const Practice = () => {
 
       {/* 練習画面のコントロールボタン群 */}
       <PracticeControls
-        onStart={playback.startPlayback}
+        onStart={handleStart}
         onStop={playback.stopPlayback}
         onResume={playback.resumePlayback}
         onToggleGuideVocal={playback.toggleGuideVocal}
