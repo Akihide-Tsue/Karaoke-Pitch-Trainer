@@ -12,21 +12,42 @@ const frequencyToMidi = (frequency: number): number => {
 let detectPitch: ((samples: Float32Array) => number | null) | null = null
 /** YIN threshold。モバイルでは弱い信号を拾うため高めに設定する */
 let yinThreshold = 0.2
+/** RMS が閾値未満なら無音とみなしピッチ 0 を返す。伴奏のマイク混入によるピッチ誤検出を防ぐ */
+let rmsThreshold = 0.01
+
+/** サンプルの RMS（二乗平均平方根）を計算 */
+const computeRms = (samples: Float32Array): number => {
+  let sum = 0
+  for (let i = 0; i < samples.length; i++) {
+    sum += samples[i] * samples[i]
+  }
+  return Math.sqrt(sum / samples.length)
+}
 
 self.onmessage = (
   e: MessageEvent<
     | { samples: Float32Array; sampleRate: number }
-    | { config: { yinThreshold: number } }
+    | { config: { yinThreshold?: number; rmsThreshold?: number } }
   >,
 ) => {
   try {
-    // 設定メッセージ: YIN パラメータを更新
+    // 設定メッセージ: パラメータを更新
     if ("config" in e.data) {
-      yinThreshold = e.data.config.yinThreshold
+      if (e.data.config.yinThreshold != null)
+        yinThreshold = e.data.config.yinThreshold
+      if (e.data.config.rmsThreshold != null)
+        rmsThreshold = e.data.config.rmsThreshold
       detectPitch = null // 次回の検出で再初期化
       return
     }
     const { samples, sampleRate } = e.data
+
+    // 音量が小さすぎる場合はピッチ検出をスキップ（伴奏混入対策）
+    if (computeRms(samples) < rmsThreshold) {
+      self.postMessage({ midi: 0 })
+      return
+    }
+
     if (!detectPitch) {
       detectPitch = Pitchfinder.YIN({
         sampleRate,

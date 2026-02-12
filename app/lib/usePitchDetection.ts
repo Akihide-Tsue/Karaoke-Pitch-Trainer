@@ -104,8 +104,14 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       })
       workerRef.current = worker
       // モバイルでは YIN の閾値を緩和して弱い信号でもピッチを拾いやすくする
+      // iOS ではエコーキャンセル後も伴奏が微小に残るため RMS 閾値を高めにして誤検出を抑制
       if (isMobile) {
-        worker.postMessage({ config: { yinThreshold: 0.35 } })
+        worker.postMessage({
+          config: {
+            yinThreshold: 0.35,
+            rmsThreshold: isIOS ? 0.03 : 0.01,
+          },
+        })
       }
       worker.onmessage = (
         ev: MessageEvent<{ midi: number } | { error: string }>,
