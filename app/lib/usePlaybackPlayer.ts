@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { loadAudioBuffer } from "~/lib/useAudioBufferLoader"
 
-/** 再生画面での伴奏・ガイドのゲイン（0–1）。録音が聞き取りやすいよう控えめに */
-const PLAYBACK_ACCOMPANIMENT_GAIN = 0.3
-/** 再生画面での録音（歌声）のゲイン。マイク録音は小さくなりがちなためブースト */
-const PLAYBACK_RECORDING_GAIN = 1.0
+/** 再生画面での伴奏・ガイドのゲイン（0–1）。PC */
+const PLAYBACK_ACCOMPANIMENT_GAIN_PC = 0.3
+/** モバイルでは伴奏をさらに下げて歌声を聞きやすく */
+const PLAYBACK_ACCOMPANIMENT_GAIN_MOBILE = 0.2
+
+const getAccompanimentGain = () =>
+  isMobile()
+    ? PLAYBACK_ACCOMPANIMENT_GAIN_MOBILE
+    : PLAYBACK_ACCOMPANIMENT_GAIN_PC
+
+/** 再生画面での録音（歌声）のゲイン。マイク録音は小さくなりがちなため必要であればブースト */
+const PLAYBACK_RECORDING_GAIN_PC = 1.0
 /** モバイル（iOS/Android）は録音が特に小さいためさらにブースト */
 const PLAYBACK_RECORDING_GAIN_MOBILE = 4.0
 
@@ -13,7 +21,7 @@ const isMobile = () =>
   (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
 
 const getRecordingGain = () =>
-  isMobile() ? PLAYBACK_RECORDING_GAIN_MOBILE : PLAYBACK_RECORDING_GAIN
+  isMobile() ? PLAYBACK_RECORDING_GAIN_MOBILE : PLAYBACK_RECORDING_GAIN_PC
 
 export interface UsePlaybackPlayerOptions {
   instUrl: string
@@ -89,13 +97,14 @@ export const usePlaybackPlayer = (
     const ctx = new AudioContext({ sampleRate: 48000 })
     contextRef.current = ctx
 
+    const ag = getAccompanimentGain()
     const ig = ctx.createGain()
-    ig.gain.value = PLAYBACK_ACCOMPANIMENT_GAIN
+    ig.gain.value = ag
     ig.connect(ctx.destination)
     instGainRef.current = ig
 
     const vg = ctx.createGain()
-    vg.gain.value = PLAYBACK_ACCOMPANIMENT_GAIN
+    vg.gain.value = ag
     vg.connect(ctx.destination)
     vocalGainRef.current = vg
 
@@ -195,7 +204,7 @@ export const usePlaybackPlayer = (
       if (ctx.state === "suspended") ctx.resume()
 
       // iOS などで resume 後にゲインが効かないことがあるため、再生開始時に必ず再適用
-      const v = Math.max(0, Math.min(1, volume)) * PLAYBACK_ACCOMPANIMENT_GAIN
+      const v = Math.max(0, Math.min(1, volume)) * getAccompanimentGain()
       ig.gain.value = v
       vg.gain.value = v
       rg.gain.value = getRecordingGain()
@@ -284,7 +293,7 @@ export const usePlaybackPlayer = (
 
   // --- 音量（伴奏は控えめ・録音はブースト。モバイルは録音をさらにブースト） ---
   useEffect(() => {
-    const v = Math.max(0, Math.min(1, volume)) * PLAYBACK_ACCOMPANIMENT_GAIN
+    const v = Math.max(0, Math.min(1, volume)) * getAccompanimentGain()
     if (instGainRef.current) instGainRef.current.gain.value = v
     if (vocalGainRef.current) vocalGainRef.current.gain.value = v
     if (recGainRef.current) recGainRef.current.gain.value = getRecordingGain()
