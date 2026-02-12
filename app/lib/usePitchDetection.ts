@@ -12,8 +12,8 @@ import processorUrl from "./pitch-processor.ts?worker&url"
 
 /** ピッチ検出のサンプル間隔。20ms で 50/s になりリアルタイム性が上がる */
 export const PITCH_INTERVAL_MS = 20
-/** マイク入力の増幅度。autoGainControl: true と併用するため控えめに設定 */
-const INPUT_GAIN = 3
+/** マイク入力の増幅度。iPhoneでは信号が弱いため高めに設定 */
+const INPUT_GAIN = 10
 
 export interface UsePitchDetectionOptions {
   /** 検出したピッチを渡す。timeMs は再生位置（伴奏の currentTime）を渡すと正確に同期する */
@@ -66,10 +66,14 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   const start = useCallback(async () => {
     latestMidiRef.current = 0
     try {
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
-          noiseSuppression: false,
+          // iOS Safari では noiseSuppression: false にするとマイク信号が極端に小さくなるため ON にする
+          noiseSuppression: isIOS,
           autoGainControl: true,
         },
       })
