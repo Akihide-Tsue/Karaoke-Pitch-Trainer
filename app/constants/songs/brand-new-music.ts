@@ -15,6 +15,8 @@ export const SONG_TITLE = "Brand New Music"
 
 /**
  * MIDI ノートと音声のタイミングのズレ補正（ms）。正の値で MIDI を後ろにずらす
- * このサンプル音源の問題かもしれない
+ * このサンプル音源の問題かもしれない。
+ * ローカル開発環境だけ遅延しているかもしれないので一旦0にしておく。
+ * マイク遅延問題と関連。
  */
-export const MIDI_OFFSET_MS = 100
+export const MIDI_OFFSET_MS = 0
