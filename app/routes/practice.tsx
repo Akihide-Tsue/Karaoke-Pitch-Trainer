@@ -83,15 +83,19 @@ const Practice = () => {
   const [lastScore, setLastScore] = useState(0)
   const lastBlobRef = useRef<Blob | null>(null)
   const pitchDataRef = useRef<PitchEntry[]>([])
+  const recordingOffsetMsRef = useRef(0)
   useEffect(() => {
     pitchDataRef.current = pitchData
   }, [pitchData])
+
+  const getRecordingOffsetMsRef = useRef<() => number>(() => 0)
 
   const handleStopped = useCallback(
     (blob: Blob | null) => {
       const score = computeScore(pitchDataRef.current, melodyData?.notes ?? [])
       setLastScore(score)
       lastBlobRef.current = blob
+      recordingOffsetMsRef.current = getRecordingOffsetMsRef.current()
       setScoreDialogOpen(true)
     },
     [melodyData],
@@ -109,6 +113,7 @@ const Practice = () => {
       pitchData: pitchDataRef.current,
       score: lastScore,
       totalDurationMs: melodyData.totalDurationMs,
+      recordingOffsetMs: recordingOffsetMsRef.current,
     })
     if (ok) setHasRecording(true)
   }, [melodyData, lastScore])
@@ -160,6 +165,7 @@ const Practice = () => {
   // playback 初期化後に ref を更新
   useEffect(() => {
     getPlaybackPositionMsRef.current = playback.getPlaybackPositionMs
+    getRecordingOffsetMsRef.current = playback.getRecordingOffsetMs
   }, [playback])
 
   // 音声バッファの自動ロード（idle なら開始）

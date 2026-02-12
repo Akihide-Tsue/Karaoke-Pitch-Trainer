@@ -36,6 +36,7 @@ const Playback = () => {
     pitchData: PitchEntry[]
     score: number
     totalDurationMs: number
+    recordingOffsetMs: number
   } | null>(null)
   const [useGuideVocal, setUseGuideVocal] = useState(false)
   const [positionMs, setPositionMs] = useState(0)
@@ -71,6 +72,7 @@ const Playback = () => {
           pitchData: rec.pitchData,
           score: rec.score,
           totalDurationMs: rec.totalDurationMs,
+          recordingOffsetMs: rec.recordingOffsetMs ?? 0,
         })
       } catch (e) {
         if (!cancelled)
@@ -92,6 +94,7 @@ const Playback = () => {
     recordingBlob: recording?.audioBlob ?? new Blob(),
     totalDurationMs: recording?.totalDurationMs ?? 0,
     useGuideVocal,
+    recordingOffsetMs: recording?.recordingOffsetMs ?? 0,
   })
 
   // データ読み込み完了後に音声バッファロード開始

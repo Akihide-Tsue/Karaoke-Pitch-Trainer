@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { loadAudioBuffer } from "~/lib/useAudioBufferLoader"
 
 /** 再生画面での伴奏・ガイドのゲイン（0–1）。PC */
-const PLAYBACK_ACCOMPANIMENT_GAIN_PC = 0.3
-/** モバイルでは伴奏をさらに下げて歌声を聞きやすく */
-const PLAYBACK_ACCOMPANIMENT_GAIN_MOBILE = 0.2
+const PLAYBACK_ACCOMPANIMENT_GAIN_PC = 0.2
+/** モバイル */
+const PLAYBACK_ACCOMPANIMENT_GAIN_MOBILE = 0.1
 
 const getAccompanimentGain = () =>
   isMobile()
@@ -30,6 +30,8 @@ export interface UsePlaybackPlayerOptions {
   totalDurationMs: number
   useGuideVocal: boolean
   volume?: number
+  /** 録音開始から伴奏再生開始までのオフセット (ms)。録音をこの分だけスキップして同期する */
+  recordingOffsetMs?: number
 }
 
 export interface UsePlaybackPlayerResult {
@@ -59,6 +61,7 @@ export const usePlaybackPlayer = (
     totalDurationMs,
     useGuideVocal,
     volume = 1.0,
+    recordingOffsetMs = 0,
   } = options
 
   const contextRef = useRef<AudioContext | null>(null)
@@ -236,11 +239,12 @@ export const usePlaybackPlayer = (
         }
       }
 
-      // 録音
-      const recSrc = createAndPlay(recBuf, rg, offset)
+      // 録音（録音は伴奏より先に開始されるため、その分だけスキップして同期する）
+      const recOffset = offset + recordingOffsetMs / 1000
+      const recSrc = createAndPlay(recBuf, rg, recOffset)
       recSourceRef.current = recSrc
     },
-    [useGuideVocal, volume, stopSources, createAndPlay],
+    [useGuideVocal, volume, recordingOffsetMs, stopSources, createAndPlay],
   )
 
   const playFromStart = useCallback(() => {

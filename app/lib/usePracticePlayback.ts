@@ -50,6 +50,8 @@ export interface UsePracticePlaybackResult {
   seekToMs: (timeMs: number) => void
   toggleGuideVocal: () => void
   seekSeconds: number
+  /** 録音開始から伴奏再生開始までのオフセット (ms)。再生時の同期補正に使用 */
+  getRecordingOffsetMs: () => number
 }
 
 /**
@@ -158,6 +160,8 @@ export const usePracticePlayback = (
   const startedAtRef = useRef(0) // context.currentTime at play start
   const offsetRef = useRef(0) // buffer offset in seconds
   const playingRef = useRef(false)
+  /** 録音開始(MediaRecorder.start)から伴奏再生開始までの時間差 (ms) */
+  const recordingOffsetMsRef = useRef(0)
   // stopPlaybackInternal を ref 化して循環参照を回避
   const stopPlaybackInternalRef = useRef<() => Promise<Blob | null>>(
     async () => null,
@@ -289,12 +293,16 @@ export const usePracticePlayback = (
     setPitchData([])
     setIsPracticing(true)
 
+    const t0 = performance.now()
     try {
       await pitchDetection.start()
     } catch {
       setIsPracticing(false)
       return
     }
+    // MediaRecorder.start() は pitchDetection.start() 内で呼ばれるため、
+    // ここまでの経過時間が録音開始〜伴奏再生開始のオフセットになる
+    recordingOffsetMsRef.current = performance.now() - t0
 
     startedAtRef.current = ctx.currentTime
     playingRef.current = true
@@ -504,5 +512,6 @@ export const usePracticePlayback = (
     seekToMs,
     toggleGuideVocal,
     seekSeconds: SEEK_SECONDS,
+    getRecordingOffsetMs: () => recordingOffsetMsRef.current,
   }
 }

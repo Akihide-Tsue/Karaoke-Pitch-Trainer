@@ -12,6 +12,8 @@ export interface LastSavedRecording {
   pitchData: PitchEntry[]
   score: number
   totalDurationMs: number
+  /** 録音開始から伴奏再生開始までのオフセット (ms)。再生時に録音をこの分だけスキップして同期する */
+  recordingOffsetMs?: number
 }
 
 const DB_NAME = "pitch-poc"
