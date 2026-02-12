@@ -26,7 +26,7 @@ import lyricsJson from "~/constants/songs/brand-new-music/lyrics.json"
 import { getLyricLines, parseLyricsToEntries } from "~/lib/lyrics"
 import { computeScore } from "~/lib/melody"
 import { parseMidiToMelodyData } from "~/lib/midi"
-import { setLastSavedRecording } from "~/lib/storage"
+import { getLastSavedRecording, setLastSavedRecording } from "~/lib/storage"
 import { usePitchDetection } from "~/lib/usePitchDetection"
 import { usePracticePlayback } from "~/lib/usePracticePlayback"
 import {
@@ -61,11 +61,17 @@ const Practice = () => {
   const micDelayMs = useAtomValue(micDelayMsAtom)
   const navigate = useNavigate()
 
-  // 録音画面→練習画面遷移で戻ってきたとき前回の歌唱データをクリア
+  // 画面遷移で戻ってきたとき前回の歌唱データをクリア
   useEffect(() => {
     setPitchData([])
     setPlaybackPosition(0)
   }, [setPitchData, setPlaybackPosition])
+
+  // 保存済み録音の有無を確認（再生画面への導線表示用）
+  const [hasRecording, setHasRecording] = useState(false)
+  useEffect(() => {
+    getLastSavedRecording().then((rec) => setHasRecording(rec != null))
+  }, [])
 
   const pitchBufferRef = useRef<PitchEntry[]>([])
   const flushScheduledRef = useRef(false)
@@ -93,7 +99,7 @@ const Practice = () => {
 
   const handleSave = useCallback(async () => {
     if (!lastBlobRef.current || !melodyData) return
-    await setLastSavedRecording({
+    const ok = await setLastSavedRecording({
       songId: SONG_ID,
       songTitle: SONG_TITLE,
       unitId: UNIT_ID,
@@ -104,6 +110,7 @@ const Practice = () => {
       score: lastScore,
       totalDurationMs: melodyData.totalDurationMs,
     })
+    if (ok) setHasRecording(true)
   }, [melodyData, lastScore])
 
   const handlePlayback = useCallback(() => {
@@ -451,7 +458,17 @@ const Practice = () => {
 
       <LyricsPanel lyricLines={lyricLines} onSeek={handleLyricSeek} />
 
-      <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+      <Box sx={{ mt: 2, display: "flex", justifyContent: "center", gap: 2 }}>
+        {hasRecording && (
+          <Button
+            component={Link}
+            to="/playback"
+            variant="outlined"
+            sx={{ fontWeight: "bold" }}
+          >
+            前回の録音を再生
+          </Button>
+        )}
         <Button
           component={Link}
           to="/"
