@@ -312,6 +312,15 @@ const Practice = () => {
       >
         <Typography component="h1" variant="h6">
           練習画面
+          <Typography component="span" variant="caption" color="text.secondary">
+            {" バージョン：" +
+              new Date(__BUILD_TIME__).toLocaleString("ja-JP", {
+                month: "numeric",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+          </Typography>
         </Typography>
         {/* マイク遅延の設定 */}
         {/* <MicDelaySettings /> */}

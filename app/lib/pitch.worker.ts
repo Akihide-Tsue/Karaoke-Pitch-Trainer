@@ -10,18 +10,28 @@ const frequencyToMidi = (frequency: number): number => {
 }
 
 let detectPitch: ((samples: Float32Array) => number | null) | null = null
+/** YIN threshold。モバイルでは弱い信号を拾うため高めに設定する */
+let yinThreshold = 0.2
 
 self.onmessage = (
-  e: MessageEvent<{ samples: Float32Array; sampleRate: number }>,
+  e: MessageEvent<
+    | { samples: Float32Array; sampleRate: number }
+    | { config: { yinThreshold: number } }
+  >,
 ) => {
   try {
+    // 設定メッセージ: YIN パラメータを更新
+    if ("config" in e.data) {
+      yinThreshold = e.data.config.yinThreshold
+      detectPitch = null // 次回の検出で再初期化
+      return
+    }
     const { samples, sampleRate } = e.data
     if (!detectPitch) {
-      // マイク感度
       detectPitch = Pitchfinder.YIN({
         sampleRate,
-        // YIN 自己相関の許容閾値（0〜1）。大きいほど弱い信号でも検出する。既定 0.1
-        threshold: 0.2,
+        // YIN 自己相関の許容閾値（0〜1）。大きいほど弱い信号でも検出する
+        threshold: yinThreshold,
         // 検出結果を採用する最低確率（0〜1）。低いほど不確実な検出も返す
         probabilityThreshold: 0.1,
       })
