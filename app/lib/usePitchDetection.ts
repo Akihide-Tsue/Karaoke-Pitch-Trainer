@@ -27,8 +27,9 @@ export interface UsePitchDetectionOptions {
 export interface UsePitchDetectionResult {
   /** マイク許可を事前に取得する（ストリームは即解放）。ページ表示時に呼ぶとダイアログを先に出せる */
   requestPermission: () => Promise<void>
-  /** ピッチ検出を開始する。マイク専用 AudioContext を内部で作成する */
-  start: () => Promise<void>
+  /** ピッチ検出を開始する。マイク専用 AudioContext を内部で作成する。
+   *  戻り値は MediaRecorder.start() を呼んだ時刻 (performance.now()) */
+  start: () => Promise<number>
   stop: () => Promise<Blob | null>
 }
 
@@ -64,15 +65,19 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     }
   }, [onError])
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (): Promise<number> => {
     latestMidiRef.current = 0
     try {
       const isMobile =
         /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+      const isIOS =
+        /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
+          // iOS はスピーカーとマイクが近く伴奏が録音に混入するためエコーキャンセルを有効にする
+          echoCancellation: isIOS,
           // モバイルでは noiseSuppression: false にするとマイク信号が極端に小さくなるため ON にする
           noiseSuppression: isMobile,
           autoGainControl: true,
@@ -155,12 +160,14 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       }
       recorder.start(100)
       recorderRef.current = recorder
+      return performance.now()
     } catch (err) {
       if (workerRef.current) {
         workerRef.current.terminate()
         workerRef.current = null
       }
       onError?.(err instanceof Error ? err : new Error(String(err)))
+      return performance.now()
     }
   }, [onPitch, getPlaybackPositionMs, onError])
 

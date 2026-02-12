@@ -293,19 +293,18 @@ export const usePracticePlayback = (
     setPitchData([])
     setIsPracticing(true)
 
-    const t0 = performance.now()
+    let recStartedAt: number
     try {
-      await pitchDetection.start()
+      recStartedAt = await pitchDetection.start()
     } catch {
       setIsPracticing(false)
       return
     }
-    // MediaRecorder.start() は pitchDetection.start() 内で呼ばれるため、
-    // ここまでの経過時間が録音開始〜伴奏再生開始のオフセットになる
-    recordingOffsetMsRef.current = performance.now() - t0
 
     startedAtRef.current = ctx.currentTime
     playingRef.current = true
+    // MediaRecorder.start() 直後のタイムスタンプと伴奏再生開始の差を記録
+    recordingOffsetMsRef.current = performance.now() - recStartedAt
 
     stopSources()
 
