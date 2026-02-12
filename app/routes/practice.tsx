@@ -6,23 +6,27 @@ import Paper from "@mui/material/Paper"
 import Typography from "@mui/material/Typography"
 import { useAtomValue, useSetAtom } from "jotai"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Link } from "react-router"
+import { Link, useNavigate } from "react-router"
 import { CurrentLine } from "~/components/CurrentLine"
 import { LyricsPanel } from "~/components/LyricsPanel"
-// import { MicDelaySettings } from "~/components/MicDelaySettings"
 import { PitchBar } from "~/components/PitchBar"
 import { PracticeControls } from "~/components/PracticeControls"
 import { PracticeLoadingScreen } from "~/components/PracticeLoadingScreen"
+import { ScoreResultDialog } from "~/components/ScoreResultDialog"
 import {
   INST_AUDIO_URL,
   MIDI_OFFSET_MS,
   MIDI_URL,
   SONG_ID,
+  SONG_TITLE,
+  UNIT_ID,
   VOCAL_AUDIO_URL,
 } from "~/constants/songs/brand-new-music"
 import lyricsJson from "~/constants/songs/brand-new-music/lyrics.json"
 import { getLyricLines, parseLyricsToEntries } from "~/lib/lyrics"
+import { computeScore } from "~/lib/melody"
 import { parseMidiToMelodyData } from "~/lib/midi"
+import { setLastSavedRecording } from "~/lib/storage"
 import { usePitchDetection } from "~/lib/usePitchDetection"
 import { usePracticePlayback } from "~/lib/usePracticePlayback"
 import {
@@ -55,11 +59,57 @@ const Practice = () => {
   const positionMs = useAtomValue(playbackPositionMsAtom)
   const isPracticing = useAtomValue(isPracticingAtom)
   const micDelayMs = useAtomValue(micDelayMsAtom)
+  const navigate = useNavigate()
+
+  // 録音画面→練習画面遷移で戻ってきたとき前回の歌唱データをクリア
+  useEffect(() => {
+    setPitchData([])
+    setPlaybackPosition(0)
+  }, [setPitchData, setPlaybackPosition])
 
   const pitchBufferRef = useRef<PitchEntry[]>([])
   const flushScheduledRef = useRef(false)
   // playback.getPlaybackPositionMs を ref 経由で pitchDetection に渡す
   const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
+
+  // --- スコア・保存 ---
+  const [scoreDialogOpen, setScoreDialogOpen] = useState(false)
+  const [lastScore, setLastScore] = useState(0)
+  const lastBlobRef = useRef<Blob | null>(null)
+  const pitchDataRef = useRef<PitchEntry[]>([])
+  useEffect(() => {
+    pitchDataRef.current = pitchData
+  }, [pitchData])
+
+  const handleStopped = useCallback(
+    (blob: Blob | null) => {
+      const score = computeScore(pitchDataRef.current, melodyData?.notes ?? [])
+      setLastScore(score)
+      lastBlobRef.current = blob
+      setScoreDialogOpen(true)
+    },
+    [melodyData],
+  )
+
+  const handleSave = useCallback(async () => {
+    if (!lastBlobRef.current || !melodyData) return
+    await setLastSavedRecording({
+      songId: SONG_ID,
+      songTitle: SONG_TITLE,
+      unitId: UNIT_ID,
+      unitStartMs: 0,
+      unitEndMs: melodyData.totalDurationMs,
+      audioBlob: lastBlobRef.current,
+      pitchData: pitchDataRef.current,
+      score: lastScore,
+      totalDurationMs: melodyData.totalDurationMs,
+    })
+  }, [melodyData, lastScore])
+
+  const handlePlayback = useCallback(() => {
+    setScoreDialogOpen(false)
+    navigate("/playback")
+  }, [navigate])
 
   const pitchDetection = usePitchDetection({
     onPitch: useCallback(
@@ -97,6 +147,7 @@ const Practice = () => {
     volume,
     instUrl: INST_AUDIO_URL,
     vocalUrl: VOCAL_AUDIO_URL,
+    onStopped: handleStopped,
   })
 
   // playback 初期化後に ref を更新
@@ -104,16 +155,13 @@ const Practice = () => {
     getPlaybackPositionMsRef.current = playback.getPlaybackPositionMs
   }, [playback])
 
-  // 音声バッファの自動ロード（1 回だけ）
-  const hasAutoLoadScheduledRef = useRef(false)
+  // 音声バッファの自動ロード（idle なら開始）
+  const { bufferLoadStatus, startLoading } = playback
   useEffect(() => {
-    if (hasAutoLoadScheduledRef.current) return
-    hasAutoLoadScheduledRef.current = true
-    const t = setTimeout(() => {
-      playback.startLoading()
-    }, 0)
-    return () => clearTimeout(t)
-  }, [playback])
+    if (bufferLoadStatus === "idle") {
+      startLoading()
+    }
+  }, [bufferLoadStatus, startLoading])
 
   // 練習ページを開いたタイミングでマイク許可を取得（開始ボタン押下時にダイアログが出ないようにする）
   const { requestPermission } = pitchDetection
@@ -121,7 +169,7 @@ const Practice = () => {
     requestPermission()
   }, [requestPermission])
 
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!melodyData)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [viewPositionMs, setViewPositionMs] = useState(0)
   const [smoothPositionMs, setSmoothPositionMs] = useState(0)
@@ -195,6 +243,8 @@ const Practice = () => {
   }
 
   useEffect(() => {
+    // melodyData が Jotai atom に残っていれば再パース不要
+    if (melodyData) return
     let cancelled = false
     setLoading(true)
     setLoadError(null)
@@ -226,7 +276,7 @@ const Practice = () => {
     return () => {
       cancelled = true
     }
-  }, [setMelodyData])
+  }, [melodyData, setMelodyData])
 
   if (
     loading ||
@@ -329,7 +379,9 @@ const Practice = () => {
       {/* 練習画面のコントロールボタン群 */}
       <PracticeControls
         onStart={handleStart}
-        onStop={playback.stopPlayback}
+        onStop={() => {
+          playback.stopPlayback()
+        }}
         onResume={playback.resumePlayback}
         onToggleGuideVocal={playback.toggleGuideVocal}
         onSeekBackward={handleSeekBackward}
@@ -409,6 +461,14 @@ const Practice = () => {
           ← ホームへ
         </Button>
       </Box>
+
+      <ScoreResultDialog
+        open={scoreDialogOpen}
+        score={lastScore}
+        onSave={handleSave}
+        onDiscard={() => setScoreDialogOpen(false)}
+        onPlayback={handlePlayback}
+      />
     </Container>
   )
 }

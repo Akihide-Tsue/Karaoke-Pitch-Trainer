@@ -1,15 +1,17 @@
 import Dexie from "dexie"
+import type { PitchEntry } from "~/stores/practice"
 
 export interface LastSavedRecording {
   id: string
   songId: string
+  songTitle: string
   unitId: string
   unitStartMs: number
   unitEndMs: number
-  audioPath: string
-  pitchData: number[]
-  intervalMs: number
-  score?: number | null
+  audioBlob: Blob
+  pitchData: PitchEntry[]
+  score: number
+  totalDurationMs: number
 }
 
 const DB_NAME = "pitch-poc"
@@ -24,6 +26,11 @@ class PitchPocDB extends Dexie {
     this.version(1).stores({
       [STORE_NAME]: "id",
     })
+    this.version(2)
+      .stores({
+        [STORE_NAME]: "id",
+      })
+      .upgrade((tx) => tx.table(STORE_NAME).clear())
   }
 }
 
