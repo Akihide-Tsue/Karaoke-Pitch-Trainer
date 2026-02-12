@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { loadAudioBuffer } from "~/lib/useAudioBufferLoader"
 
 /** 再生画面での伴奏・ガイドのゲイン（0–1）。録音が聞き取りやすいよう控えめに */
-const PLAYBACK_ACCOMPANIMENT_GAIN = 0.5
+const PLAYBACK_ACCOMPANIMENT_GAIN = 0.3
 /** 再生画面での録音（歌声）のゲイン。マイク録音は小さくなりがちなためブースト */
-const PLAYBACK_RECORDING_GAIN = 2.0
+const PLAYBACK_RECORDING_GAIN = 1.0
 /** モバイル（iOS/Android）は録音が特に小さいためさらにブースト */
-const PLAYBACK_RECORDING_GAIN_MOBILE = 5.0
+const PLAYBACK_RECORDING_GAIN_MOBILE = 4.0
 
 const isMobile = () =>
   /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
