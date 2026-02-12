@@ -4,7 +4,7 @@ import { loadAudioBuffer } from "~/lib/useAudioBufferLoader"
 /** 再生画面での伴奏・ガイドのゲイン（0–1）。PC */
 const PLAYBACK_ACCOMPANIMENT_GAIN_PC = 0.2
 /** モバイル */
-const PLAYBACK_ACCOMPANIMENT_GAIN_MOBILE = 0.1
+const PLAYBACK_ACCOMPANIMENT_GAIN_MOBILE = 0.05
 
 const getAccompanimentGain = () =>
   isMobile()
