@@ -106,10 +106,14 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       // モバイルでは YIN の閾値を緩和して弱い信号でもピッチを拾いやすくする
       // iOS ではエコーキャンセル後も伴奏が微小に残るため RMS 閾値を高めにして誤検出を抑制
       if (isMobile) {
+        // マイク感度
         worker.postMessage({
           config: {
+            // YIN 自己相関の許容閾値（デフォルト 0.2）。大きいほど弱い信号でもピッチを検出する
             yinThreshold: 0.35,
-            rmsThreshold: isIOS ? 0.03 : 0.01,
+            // RMS 音量ゲート。この値未満の音量はノイズ/伴奏混入とみなしスキップする
+            // モバイル端末（特にiOSはエコーキャンセリング後も伴奏が微小に残る） 伴奏が微小に残るため高め (0.03)、Android は低め (0.01)
+            rmsThreshold: isMobile ? 0.03 : 0.01,
           },
         })
       }
