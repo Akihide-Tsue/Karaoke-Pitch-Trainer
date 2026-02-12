@@ -20,6 +20,8 @@ const PITCH_BAR_WINDOW_BARS = 1.5
 const POSITION_TICK_MS = 16
 /** ドラッグ感度。1幅分のドラッグでパンする小節数。大きくすると少ないドラッグで大きく移動 */
 const DRAG_SENSITIVITY_BARS = 2
+/** 現在位置をビュー内のどこに置くか (0–1)。CurrentLine の表示位置と一致させる */
+export const POSITION_RATIO = 0.5
 
 /**
  * 五線譜風の音程バーコンポーネント。
@@ -94,7 +96,6 @@ export const PitchBar = ({
   const svgData = useMemo(() => {
     if (!totalDurationMs || !notes.length) return null
     const windowDurationMs = PITCH_BAR_WINDOW_BARS * msPerBar
-    const POSITION_RATIO = 0.5
     const pos = positionTick
     const windowStartMs = Math.max(
       0,
@@ -225,10 +226,6 @@ export const PitchBar = ({
     scaleY,
   } = svgData
 
-  // 位置線は SVG と同じ scaleX を使い、赤い線と現在位置・描画内容を一致させる
-  // const rawPositionX = scaleX(positionMs)
-  // const positionPct = Math.max(0, Math.min(100, (rawPositionX / w) * 100))
-
   return (
     <Box
       ref={containerRef}
@@ -302,29 +299,6 @@ export const PitchBar = ({
         })}
         {singingBars}
       </svg>
-      {/* 現在位置の赤い縦線: 一旦非表示 */}
-      {/* <Box
-        aria-hidden
-        sx={{
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          isolation: "isolate",
-        }}
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            left: `${positionPct}%`,
-            top: 0,
-            bottom: 0,
-            width: 2,
-            borderLeft: "2px dashed #E63C3C",
-            transform: "translateX(-50%) translateZ(0)",
-            willChange: "left",
-          }}
-        />
-      </Box> */}
     </Box>
   )
 }

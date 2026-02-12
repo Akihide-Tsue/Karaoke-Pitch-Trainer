@@ -7,13 +7,15 @@ import Typography from "@mui/material/Typography"
 import { useAtomValue, useSetAtom } from "jotai"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router"
+import { CurrentLine } from "~/components/CurrentLine"
 import { LyricsPanel } from "~/components/LyricsPanel"
-import { MicDelaySettings } from "~/components/MicDelaySettings"
+// import { MicDelaySettings } from "~/components/MicDelaySettings"
 import { PitchBar } from "~/components/PitchBar"
 import { PracticeControls } from "~/components/PracticeControls"
 import { PracticeLoadingScreen } from "~/components/PracticeLoadingScreen"
 import {
   INST_AUDIO_URL,
+  MIDI_OFFSET_MS,
   MIDI_URL,
   SONG_ID,
   VOCAL_AUDIO_URL,
@@ -199,6 +201,16 @@ const Practice = () => {
     ;(async () => {
       try {
         const data = await parseMidiToMelodyData(MIDI_URL, SONG_ID)
+        // MIDIと音声のタイミングズレを補正
+        if (MIDI_OFFSET_MS) {
+          for (const n of data.notes) {
+            n.startMs += MIDI_OFFSET_MS
+            n.endMs += MIDI_OFFSET_MS
+          }
+          if (data.barOffsetMs != null) {
+            data.barOffsetMs += MIDI_OFFSET_MS
+          }
+        }
         const lyrics = parseLyricsToEntries(lyricsJson as LyricsJsonEntry[])
         if (cancelled) return
         setMelodyData({ ...data, lyrics })
@@ -302,7 +314,7 @@ const Practice = () => {
           練習画面
         </Typography>
         {/* マイク遅延の設定 */}
-        <MicDelaySettings />
+        {/* <MicDelaySettings /> */}
       </Box>
 
       {/* 練習画面のコントロールボタン群 */}
@@ -326,7 +338,14 @@ const Practice = () => {
       />
 
       <Paper sx={{ p: 2, mb: 2, overflow: "hidden" }}>
-        <Box sx={{ overflow: "hidden", width: "100%", minWidth: 0 }}>
+        <Box
+          sx={{
+            position: "relative",
+            overflow: "hidden",
+            width: "100%",
+            minWidth: 0,
+          }}
+        >
           {/* 五線譜風の音程バーコンポーネント */}
           <PitchBar
             notes={melodyData?.notes ?? []}
@@ -337,6 +356,8 @@ const Practice = () => {
             barOffsetMs={melodyData?.barOffsetMs}
             onViewDrag={!isPracticing ? setViewPositionMs : undefined}
           />
+          {/* 現在位置の縦線 */}
+          <CurrentLine />
         </Box>
         <Box
           sx={{

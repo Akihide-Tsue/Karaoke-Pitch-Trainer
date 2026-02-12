@@ -31,7 +31,7 @@ export const recordingModeAtom = atom<boolean>(false)
 /** マイク遅延（ms）。歌唱と音程バーの表示ズレを補正。端末ごとにキャリブレーション可能 */
 export const micDelayMsAtom = atomWithStorage<number>(
   MIC_DELAY_STORAGE_KEY,
-  300,
+  0,
   {
     getItem: (key, initial) => {
       try {

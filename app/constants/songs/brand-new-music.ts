@@ -12,3 +12,9 @@ export const INST_AUDIO_URL = "/Brand_New_Music_inst.m4a"
 export const VOCAL_AUDIO_URL = "/Brand_New_Music.m4a"
 
 export const SONG_TITLE = "Brand New Music"
+
+/**
+ * MIDI ノートと音声のタイミングのズレ補正（ms）。正の値で MIDI を後ろにずらす
+ * このサンプル音源の問題かもしれない
+ */
+export const MIDI_OFFSET_MS = 100

@@ -196,7 +196,13 @@ export const usePracticePlayback = (
     if (!contextRef.current) return 0
     if (!playingRef.current) return offsetRef.current * 1000
     const elapsed = contextRef.current.currentTime - startedAtRef.current
-    return (offsetRef.current + elapsed) * 1000
+    // ctx.currentTime はスピーカー出力前の時刻なので、出力バッファ遅延分だけ実際に聞こえる音より先行する。outputLatency を引いて補正する。
+    const latency =
+      (contextRef.current as unknown as { outputLatency?: number })
+        .outputLatency ??
+      contextRef.current.baseLatency ??
+      0
+    return (offsetRef.current + elapsed - latency) * 1000
   }, [])
 
   // --- 再生位置の定期更新（再生中のみ） ---
