@@ -71,13 +71,14 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       const isMobile =
         /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-      const isIOS =
-        /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
-        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+      // const isIOS =
+      //   /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+      //   (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           // iOS はスピーカーとマイクが近く伴奏が録音に混入するためエコーキャンセルを有効にする
-          echoCancellation: isIOS,
+          // echoCancellation: isIOS,
+          echoCancellation: false,
           // モバイルでは noiseSuppression: false にするとマイク信号が極端に小さくなるため ON にする
           noiseSuppression: isMobile,
           autoGainControl: true,
