@@ -12,8 +12,9 @@ import processorUrl from "./pitch-processor.ts?worker&url"
 
 /** ピッチ検出のサンプル間隔。20ms で 50/s になりリアルタイム性が上がる */
 export const PITCH_INTERVAL_MS = 20
-/** マイク入力の増幅度。iPhoneでは信号が弱いため高めに設定 */
-const INPUT_GAIN = 10
+/** マイク入力の増幅度。PCは伴奏を拾わないよう控えめ、スマホは信号が弱いため高め */
+const INPUT_GAIN_MOBILE = 10
+const INPUT_GAIN_DESKTOP = 3
 
 export interface UsePitchDetectionOptions {
   /** 検出したピッチを渡す。timeMs は再生位置（伴奏の currentTime）を渡すと正確に同期する */
@@ -66,14 +67,14 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   const start = useCallback(async () => {
     latestMidiRef.current = 0
     try {
-      const isIOS =
-        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      const isMobile =
+        /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
-          // iOS Safari では noiseSuppression: false にするとマイク信号が極端に小さくなるため ON にする
-          noiseSuppression: isIOS,
+          // モバイルでは noiseSuppression: false にするとマイク信号が極端に小さくなるため ON にする
+          noiseSuppression: isMobile,
           autoGainControl: true,
         },
       })
@@ -114,7 +115,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       sourceRef.current = source
 
       const gain = context.createGain()
-      gain.gain.value = INPUT_GAIN
+      gain.gain.value = isMobile ? INPUT_GAIN_MOBILE : INPUT_GAIN_DESKTOP
       gainRef.current = gain
 
       // AudioWorkletNode を作成し、worklet → worker へサンプルを転送
