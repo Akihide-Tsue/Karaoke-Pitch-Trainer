@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { loadAudioBuffer } from "~/lib/useAudioBufferLoader"
 
+/** 再生画面での伴奏・ガイドのゲイン（0–1）。録音が聞き取りやすいよう控えめに */
+const PLAYBACK_ACCOMPANIMENT_GAIN = 0.5
+/** 再生画面での録音（歌声）のゲイン。マイク録音は小さくなりがちなためブースト */
+const PLAYBACK_RECORDING_GAIN = 2.0
+
 export interface UsePlaybackPlayerOptions {
   instUrl: string
   vocalUrl: string
@@ -76,14 +81,17 @@ export const usePlaybackPlayer = (
     contextRef.current = ctx
 
     const ig = ctx.createGain()
+    ig.gain.value = PLAYBACK_ACCOMPANIMENT_GAIN
     ig.connect(ctx.destination)
     instGainRef.current = ig
 
     const vg = ctx.createGain()
+    vg.gain.value = PLAYBACK_ACCOMPANIMENT_GAIN
     vg.connect(ctx.destination)
     vocalGainRef.current = vg
 
     const rg = ctx.createGain()
+    rg.gain.value = PLAYBACK_RECORDING_GAIN
     rg.connect(ctx.destination)
     recGainRef.current = rg
 
@@ -259,12 +267,13 @@ export const usePlaybackPlayer = (
     })
   }, [getPositionMs, stopSources, playInternal])
 
-  // --- 音量 ---
+  // --- 音量（伴奏は控えめ・録音はブーストで聞きやすく） ---
   useEffect(() => {
-    const v = Math.max(0, Math.min(1, volume))
+    const v = Math.max(0, Math.min(1, volume)) * PLAYBACK_ACCOMPANIMENT_GAIN
     if (instGainRef.current) instGainRef.current.gain.value = v
     if (vocalGainRef.current) vocalGainRef.current.gain.value = v
-    // 録音音量は常に1.0
+    if (recGainRef.current)
+      recGainRef.current.gain.value = PLAYBACK_RECORDING_GAIN
   }, [volume])
 
   // --- クリーンアップ ---
