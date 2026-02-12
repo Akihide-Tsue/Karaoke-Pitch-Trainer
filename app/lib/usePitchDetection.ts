@@ -13,7 +13,7 @@ import processorUrl from "./pitch-processor.ts?worker&url"
 /** ピッチ検出のサンプル間隔。20ms で 50/s になりリアルタイム性が上がる */
 export const PITCH_INTERVAL_MS = 20
 /** マイク入力の増幅度。PCは伴奏を拾わないよう控えめ、スマホは信号が弱いため高め */
-const INPUT_GAIN_MOBILE = 15
+const INPUT_GAIN_MOBILE = 20
 const INPUT_GAIN_DESKTOP = 3
 
 export interface UsePitchDetectionOptions {
