@@ -24,7 +24,7 @@ export const PITCH_NOTE_MATCH = "#4caf50"
 export const PITCH_NOTE_MISMATCH = "#757575"
 
 /** 音程バー 現在位置の縦線（赤） */
-export const PITCH_POSITION_LINE = "#E63C3C"
+export const PITCH_POSITION_LINE = "#E15151"
 
 /** チェックマーク 円の塗り */
 export const CHECK_CIRCLE_FILL = "#1976d2"

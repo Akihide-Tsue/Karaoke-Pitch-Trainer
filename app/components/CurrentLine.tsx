@@ -1,5 +1,6 @@
 import Box from "@mui/material/Box"
 import { POSITION_RATIO } from "~/components/PitchBar"
+import { PITCH_POSITION_LINE } from "~/constants/colors"
 
 /**
  * 現在位置を示す縦線。親が position: relative のコンテナ内で、
@@ -23,7 +24,7 @@ export function CurrentLine() {
           top: 0,
           bottom: 0,
           width: 2,
-          borderLeft: "2px dashed #E63C3C",
+          borderLeft: `1px solid ${PITCH_POSITION_LINE}`,
           transform: "translateX(-50%)",
         }}
       />
