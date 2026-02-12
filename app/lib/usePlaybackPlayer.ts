@@ -14,7 +14,7 @@ const getAccompanimentGain = () =>
 /** 再生画面での録音（歌声）のゲイン。マイク録音は小さくなりがちなため必要であればブースト */
 const PLAYBACK_RECORDING_GAIN_PC = 1.0
 /** モバイル（iOS/Android）は録音が特に小さいためさらにブースト */
-const PLAYBACK_RECORDING_GAIN_MOBILE = 2.0
+const PLAYBACK_RECORDING_GAIN_MOBILE = 1.0
 
 const isMobile = () =>
   /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
