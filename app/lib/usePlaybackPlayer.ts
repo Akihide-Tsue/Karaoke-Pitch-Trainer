@@ -5,6 +5,15 @@ import { loadAudioBuffer } from "~/lib/useAudioBufferLoader"
 const PLAYBACK_ACCOMPANIMENT_GAIN = 0.5
 /** 再生画面での録音（歌声）のゲイン。マイク録音は小さくなりがちなためブースト */
 const PLAYBACK_RECORDING_GAIN = 2.0
+/** モバイル（iOS/Android）は録音が特に小さいためさらにブースト */
+const PLAYBACK_RECORDING_GAIN_MOBILE = 5.0
+
+const isMobile = () =>
+  /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+
+const getRecordingGain = () =>
+  isMobile() ? PLAYBACK_RECORDING_GAIN_MOBILE : PLAYBACK_RECORDING_GAIN
 
 export interface UsePlaybackPlayerOptions {
   instUrl: string
@@ -91,7 +100,7 @@ export const usePlaybackPlayer = (
     vocalGainRef.current = vg
 
     const rg = ctx.createGain()
-    rg.gain.value = PLAYBACK_RECORDING_GAIN
+    rg.gain.value = getRecordingGain()
     rg.connect(ctx.destination)
     recGainRef.current = rg
 
@@ -185,6 +194,12 @@ export const usePlaybackPlayer = (
 
       if (ctx.state === "suspended") ctx.resume()
 
+      // iOS などで resume 後にゲインが効かないことがあるため、再生開始時に必ず再適用
+      const v = Math.max(0, Math.min(1, volume)) * PLAYBACK_ACCOMPANIMENT_GAIN
+      ig.gain.value = v
+      vg.gain.value = v
+      rg.gain.value = getRecordingGain()
+
       stopSources()
       startedAtRef.current = ctx.currentTime
       offsetRef.current = offset
@@ -216,7 +231,7 @@ export const usePlaybackPlayer = (
       const recSrc = createAndPlay(recBuf, rg, offset)
       recSourceRef.current = recSrc
     },
-    [useGuideVocal, stopSources, createAndPlay],
+    [useGuideVocal, volume, stopSources, createAndPlay],
   )
 
   const playFromStart = useCallback(() => {
@@ -267,13 +282,12 @@ export const usePlaybackPlayer = (
     })
   }, [getPositionMs, stopSources, playInternal])
 
-  // --- 音量（伴奏は控えめ・録音はブーストで聞きやすく） ---
+  // --- 音量（伴奏は控えめ・録音はブースト。モバイルは録音をさらにブースト） ---
   useEffect(() => {
     const v = Math.max(0, Math.min(1, volume)) * PLAYBACK_ACCOMPANIMENT_GAIN
     if (instGainRef.current) instGainRef.current.gain.value = v
     if (vocalGainRef.current) vocalGainRef.current.gain.value = v
-    if (recGainRef.current)
-      recGainRef.current.gain.value = PLAYBACK_RECORDING_GAIN
+    if (recGainRef.current) recGainRef.current.gain.value = getRecordingGain()
   }, [volume])
 
   // --- クリーンアップ ---
