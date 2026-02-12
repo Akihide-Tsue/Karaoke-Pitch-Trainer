@@ -40,3 +40,23 @@ export const getTargetPitchAtTime = (
   const note = notes.find((n) => timeMs >= n.startMs && timeMs < n.endMs)
   return note ? note.pitch : null
 }
+
+/**
+ * 歌唱ピッチと正解ノートの一致率を算出（0〜100）。
+ * 無音（midi <= 0）やノートがない区間はスキップし、±1半音以内を一致とする。
+ */
+export const computeScore = (
+  pitchData: { timeMs: number; midi: number }[],
+  notes: MelodyNote[],
+): number => {
+  let matched = 0
+  let total = 0
+  for (const entry of pitchData) {
+    if (entry.midi <= 0) continue
+    const target = getTargetPitchAtTime(notes, entry.timeMs)
+    if (target === null) continue
+    total++
+    if (Math.abs(entry.midi - target) <= 1) matched++
+  }
+  return total === 0 ? 0 : Math.round((matched / total) * 100)
+}

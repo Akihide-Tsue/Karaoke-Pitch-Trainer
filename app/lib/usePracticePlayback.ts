@@ -23,6 +23,8 @@ export interface UsePracticePlaybackOptions {
   instUrl: string
   /** ガイドボーカルの音声 URL */
   vocalUrl: string
+  /** 歌唱停止時（ユーザー操作・自然終了の両方）に呼ばれる */
+  onStopped?: (blob: Blob | null) => void
 }
 
 /**
@@ -41,7 +43,7 @@ export interface UsePracticePlaybackResult {
   startLoading: () => void
   getPlaybackPositionMs: () => number
   startPlayback: () => Promise<void>
-  stopPlayback: () => Promise<void>
+  stopPlayback: () => Promise<Blob | null>
   resumePlayback: () => Promise<void>
   seekBackward: () => void
   seekForward: () => void
@@ -69,6 +71,7 @@ export const usePracticePlayback = (
     volume = 1.0,
     instUrl,
     vocalUrl,
+    onStopped,
   } = options
 
   // --- AudioContext & GainNode（useEffect で 1 回だけ作成） ---
@@ -139,6 +142,7 @@ export const usePracticePlayback = (
   useEffect(() => {
     return () => {
       loadingCancelledRef.current = true
+      isLoadingRef.current = false
       if (contextRef.current) {
         contextRef.current.close()
         contextRef.current = null
@@ -155,7 +159,9 @@ export const usePracticePlayback = (
   const offsetRef = useRef(0) // buffer offset in seconds
   const playingRef = useRef(false)
   // stopPlaybackInternal を ref 化して循環参照を回避
-  const stopPlaybackInternalRef = useRef<() => Promise<void>>(async () => {})
+  const stopPlaybackInternalRef = useRef<() => Promise<Blob | null>>(
+    async () => null,
+  )
 
   // --- ヘルパー: ソースノードを作成して再生 ---
   const createAndPlaySource = useCallback(
@@ -239,7 +245,7 @@ export const usePracticePlayback = (
   )
 
   // --- 停止（内部用: onended からも呼ばれる） ---
-  const stopPlaybackInternal = useCallback(async () => {
+  const stopPlaybackInternal = useCallback(async (): Promise<Blob | null> => {
     if (playingRef.current && contextRef.current) {
       const elapsed = contextRef.current.currentTime - startedAtRef.current
       offsetRef.current = offsetRef.current + elapsed
@@ -247,16 +253,24 @@ export const usePracticePlayback = (
     playingRef.current = false
     stopSources()
     stopPositionUpdater()
-    await pitchDetection.stop()
+    const blob = await pitchDetection.stop()
     setIsPracticing(false)
-  }, [pitchDetection, setIsPracticing, stopSources, stopPositionUpdater])
+    onStopped?.(blob)
+    return blob
+  }, [
+    pitchDetection,
+    setIsPracticing,
+    stopSources,
+    stopPositionUpdater,
+    onStopped,
+  ])
 
   // ref を常に最新に保つ
   stopPlaybackInternalRef.current = stopPlaybackInternal
 
   // --- 停止（外部用） ---
-  const stopPlayback = useCallback(async () => {
-    await stopPlaybackInternal()
+  const stopPlayback = useCallback(async (): Promise<Blob | null> => {
+    return stopPlaybackInternal()
   }, [stopPlaybackInternal])
 
   // --- 再生開始 ---
