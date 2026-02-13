@@ -49,7 +49,8 @@
       "Bash(pnpm add:*)",
       "Bash(npx biome format:*)",
       "Bash(gh pr view:*)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(npx vite build:*)"
     ]
   }
 }

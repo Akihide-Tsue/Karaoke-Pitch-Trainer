@@ -12,9 +12,9 @@ Web Audio API ベースのカラオケピッチトレーナー。MIDIメロデ�
 - **UI**: MUI v7 + Emotion
 - **State**: Jotai
 - **DB**: Dexie (IndexedDB wrapper)
-- **Audio**: Web Audio API, AudioWorklet, pitchfinder (YIN algorithm)
+- **Audio**: Web Audio API, AudioWorklet, **pitchy** (MPM algorithm)
 - **MIDI**: @tonejs/midi
-- **Linter/Formatter**: Biome
+- **Linter/Formatter**: Biome (lineWidth: 100)
 - **Hosting**: Vercel
 - **Package Manager**: pnpm
 
@@ -28,8 +28,8 @@ app/
 │   ├── usePitchDetection.ts   # マイク入力・ピッチ検出・録音
 │   ├── usePracticePlayback.ts # 練習モード再生+録音
 │   ├── usePlaybackPlayer.ts   # 録音再生
-│   ├── pitch.worker.ts        # YINピッチ検出Worker
-│   ├── pitch-processor.ts     # AudioWorkletProcessor
+│   ├── pitch.worker.ts        # pitchy MPMピッチ検出Worker
+│   ├── pitch-processor.ts     # AudioWorkletProcessor (2048 sample buffer)
 │   ├── melody.ts / midi.ts    # MIDIメロディ処理
 │   ├── lyrics.ts              # 歌詞処理
 │   ├── db.ts                  # Dexie DB定義

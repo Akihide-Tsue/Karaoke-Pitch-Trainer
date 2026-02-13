@@ -74,6 +74,12 @@ const Practice = () => {
   }, [])
 
   const pitchBufferRef = useRef<PitchEntry[]>([])
+  /** 練習中のピッチデータを蓄積する mutable ref。
+   *  Jotai atom の setPitchData([...prev, ...batch]) は O(n) コピーが毎フレーム走り、
+   *  Android では配列が大きくなるにつれ GC + re-render 遅延が増大する。
+   *  mutable ref への push は O(1) で済み、version カウンタで PitchBar の再描画をトリガーする。 */
+  const livePitchRef = useRef<PitchEntry[]>([])
+  const [pitchVersion, setPitchVersion] = useState(0)
 
   // playback.getPlaybackPositionMs を ref 経由で pitchDetection に渡す
   const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
@@ -84,9 +90,13 @@ const Practice = () => {
   const lastBlobRef = useRef<Blob | null>(null)
   const pitchDataRef = useRef<PitchEntry[]>([])
   const recordingOffsetMsRef = useRef(0)
+  // 練習中は livePitchRef から直接参照し、停止後は Jotai atom から同期
   useEffect(() => {
-    pitchDataRef.current = pitchData
-  }, [pitchData])
+    if (!isPracticing) pitchDataRef.current = pitchData
+  }, [pitchData, isPracticing])
+  useEffect(() => {
+    if (isPracticing) pitchDataRef.current = livePitchRef.current
+  }, [isPracticing])
 
   const getRecordingOffsetMsRef = useRef<() => number>(() => 0)
 
@@ -182,21 +192,30 @@ const Practice = () => {
   }, [isPracticing, positionMs])
 
   // 再生中は requestAnimationFrame で位置を毎フレーム更新し、PitchBar の位置線をスムーズに動かす
-  // pitchBuffer の flush も同じフレーム内で行い、smoothPositionMs と pitchData の同期を保つ
+  // pitchBuffer → livePitchRef への push は O(1)。version カウンタで PitchBar の再描画をトリガーする。
   useEffect(() => {
     if (!isPracticing) return
+    livePitchRef.current = []
+    setPitchVersion(0)
     let rafId: number
     const tick = () => {
       setSmoothPositionMs(playback.getPlaybackPositionMs())
       if (pitchBufferRef.current.length > 0) {
         const batch = pitchBufferRef.current
         pitchBufferRef.current = []
-        setPitchData((prev) => [...prev, ...batch])
+        for (let i = 0; i < batch.length; i++) {
+          livePitchRef.current.push(batch[i])
+        }
+        setPitchVersion((v) => v + 1)
       }
       rafId = requestAnimationFrame(tick)
     }
     rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
+    return () => {
+      cancelAnimationFrame(rafId)
+      // 練習終了時に Jotai atom へ確定値を書き戻す（スコア計算・保存用）
+      setPitchData(livePitchRef.current.slice())
+    }
   }, [isPracticing, playback, setPitchData])
 
   // キーボードの音量キー（VolumeUp/VolumeDown/VolumeMute）でアプリ音量とUIスライダーを連動
@@ -411,7 +430,8 @@ const Practice = () => {
           {/* 五線譜風の音程バーコンポーネント */}
           <PitchBar
             notes={melodyData?.notes ?? []}
-            pitchData={pitchData}
+            pitchData={isPracticing ? livePitchRef.current : pitchData}
+            pitchVersion={pitchVersion}
             totalDurationMs={totalDurationMs}
             positionMs={isPracticing ? smoothPositionMs : viewPositionMs}
             bpm={melodyData?.bpm}
@@ -448,10 +468,11 @@ const Practice = () => {
           {isPracticing && (
             <Typography variant="caption" color="error" sx={{ fontSize: "10px" }}>
               {(() => {
-                const lastPitch = pitchData[pitchData.length - 1]
+                const live = livePitchRef.current
+                const lastPitch = live[live.length - 1]
                 const lat = playback.getDebugLatency()
                 const delta = lastPitch ? smoothPositionMs - lastPitch.timeMs : 0
-                return `delta:${Math.round(delta)}ms oLat:${(lat.outputLatency * 1000).toFixed(0)}ms bLat:${(lat.baseLatency * 1000).toFixed(0)}ms`
+                return `delta:${Math.round(delta)}ms n:${live.length} oLat:${(lat.outputLatency * 1000).toFixed(0)}ms bLat:${(lat.baseLatency * 1000).toFixed(0)}ms`
               })()}
             </Typography>
           )}
