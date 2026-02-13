@@ -74,7 +74,7 @@ const Practice = () => {
   }, [])
 
   const pitchBufferRef = useRef<PitchEntry[]>([])
-  const flushScheduledRef = useRef(false)
+
   // playback.getPlaybackPositionMs を ref 経由で pitchDetection に渡す
   const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
 
@@ -126,18 +126,10 @@ const Practice = () => {
   const pitchDetection = usePitchDetection({
     onPitch: useCallback(
       (midi: number, timeMs: number) => {
+        // バッファに溜めるだけ。flush は smoothPositionMs の rAF ループ内で行う
         pitchBufferRef.current.push({ timeMs: timeMs - micDelayMs, midi })
-        if (!flushScheduledRef.current) {
-          flushScheduledRef.current = true
-          requestAnimationFrame(() => {
-            const batch = pitchBufferRef.current
-            pitchBufferRef.current = []
-            flushScheduledRef.current = false
-            setPitchData((prev) => [...prev, ...batch])
-          })
-        }
       },
-      [setPitchData, micDelayMs],
+      [micDelayMs],
     ),
     getPlaybackPositionMs: () => getPlaybackPositionMsRef.current(),
     onError: useCallback((err: Error) => {
@@ -190,16 +182,22 @@ const Practice = () => {
   }, [isPracticing, positionMs])
 
   // 再生中は requestAnimationFrame で位置を毎フレーム更新し、PitchBar の位置線をスムーズに動かす
+  // pitchBuffer の flush も同じフレーム内で行い、smoothPositionMs と pitchData の同期を保つ
   useEffect(() => {
     if (!isPracticing) return
     let rafId: number
     const tick = () => {
       setSmoothPositionMs(playback.getPlaybackPositionMs())
+      if (pitchBufferRef.current.length > 0) {
+        const batch = pitchBufferRef.current
+        pitchBufferRef.current = []
+        setPitchData((prev) => [...prev, ...batch])
+      }
       rafId = requestAnimationFrame(tick)
     }
     rafId = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafId)
-  }, [isPracticing, playback])
+  }, [isPracticing, playback, setPitchData])
 
   // キーボードの音量キー（VolumeUp/VolumeDown/VolumeMute）でアプリ音量とUIスライダーを連動
   useEffect(() => {
