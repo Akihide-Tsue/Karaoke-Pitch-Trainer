@@ -12,8 +12,10 @@ import processorUrl from "./pitch-processor.ts?worker&url"
 
 /** ピッチ検出のサンプル間隔。20ms で 50/s になりリアルタイム性が上がる */
 export const PITCH_INTERVAL_MS = 20
-/** マイク入力の増幅度。PCは伴奏を拾わないよう控えめ、スマホは信号が弱いため高め */
-const INPUT_GAIN_MOBILE = 20
+/** マイク入力の増幅度。DSP(AGC/NS)を無効にした生信号を増幅する。
+ *  高すぎるとクリッピングで波形が歪みYINの誤検出を招くため、
+ *  DynamicsCompressorNode と併用して適度な値にする */
+const INPUT_GAIN_MOBILE = 10
 const INPUT_GAIN_DESKTOP = 3
 
 export interface UsePitchDetectionOptions {
@@ -39,7 +41,9 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   const contextRef = useRef<AudioContext | null>(null)
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const gainRef = useRef<GainNode | null>(null)
+  const compressorRef = useRef<DynamicsCompressorNode | null>(null)
   const workletNodeRef = useRef<AudioWorkletNode | null>(null)
+  const recDestRef = useRef<MediaStreamAudioDestinationNode | null>(null)
   const workerRef = useRef<Worker | null>(null)
   const latestMidiRef = useRef<number>(0)
   const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -71,17 +75,15 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       const isMobile =
         /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-      // const isIOS =
-      //   /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
-      //   (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+      // 歌唱アプリでは通話用DSP（エコーキャンセル・ノイズ抑制・自動ゲイン）を
+      // すべて無効にし、GainNode + DynamicsCompressorNode で品質を制御する。
+      // これらのDSPは歌声の倍音やダイナミクスを劣化させるため。
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          // iOS はスピーカーとマイクが近く伴奏が録音に混入するためエコーキャンセルを有効にする
-          // echoCancellation: isIOS,
           echoCancellation: false,
-          // モバイルでは noiseSuppression: false にするとマイク信号が極端に小さくなるため ON にする
-          noiseSuppression: isMobile,
-          autoGainControl: true,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 1,
         },
       })
       streamRef.current = stream
@@ -138,6 +140,15 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       gain.gain.value = isMobile ? INPUT_GAIN_MOBILE : INPUT_GAIN_DESKTOP
       gainRef.current = gain
 
+      // クリッピング防止: GainNode で増幅した信号が 0dBFS を超えないよう圧縮する
+      const compressor = context.createDynamicsCompressor()
+      compressor.threshold.value = -6 // -6dB で圧縮開始
+      compressor.knee.value = 6
+      compressor.ratio.value = 4 // 4:1
+      compressor.attack.value = 0.003 // 3ms
+      compressor.release.value = 0.1 // 100ms
+      compressorRef.current = compressor
+
       // AudioWorkletNode を作成し、worklet → worker へサンプルを転送
       const workletNode = new AudioWorkletNode(context, "pitch-processor")
       workletNodeRef.current = workletNode
@@ -149,27 +160,41 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
         workerRef.current.postMessage({ samples, sampleRate }, [samples.buffer])
       }
 
+      // 信号経路: source → gain → compressor → workletNode (ピッチ検出)
+      //                                       → recDest (録音)
       source.connect(gain)
-      gain.connect(workletNode)
+      gain.connect(compressor)
+      compressor.connect(workletNode)
       // destination に繋がないことで伴奏の出力に干渉しない
-      const dest = context.createMediaStreamDestination()
-      workletNode.connect(dest)
+      const dummyDest = context.createMediaStreamDestination()
+      workletNode.connect(dummyDest)
+      // 録音用: 増幅+圧縮済みの信号を録音する（生streamではなく加工後の信号）
+      const recDest = context.createMediaStreamDestination()
+      compressor.connect(recDest)
+      recDestRef.current = recDest
 
       intervalIdRef.current = setInterval(() => {
         const timeMs = getPlaybackPositionMs?.() ?? 0
         onPitch(latestMidiRef.current, timeMs)
       }, PITCH_INTERVAL_MS)
 
+      // MediaRecorder: 増幅+圧縮済みの信号を録音（生streamではなく加工後）
       chunksRef.current = []
-      const recorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm")
-          ? "audio/webm"
-          : "audio/ogg",
+      const recMimeType = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4", // iOS Safari フォールバック
+        "audio/ogg;codecs=opus",
+        "audio/ogg",
+      ].find((t) => MediaRecorder.isTypeSupported(t))
+      const recorder = new MediaRecorder(recDest.stream, {
+        ...(recMimeType ? { mimeType: recMimeType } : {}),
+        audioBitsPerSecond: 128000, // 歌声品質: 128kbps
       })
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data)
       }
-      recorder.start(100)
+      recorder.start(250)
       recorderRef.current = recorder
       return performance.now()
     } catch (err) {
@@ -190,10 +215,11 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     let blob: Blob | null = null
     const recorder = recorderRef.current
     if (recorder && recorder.state !== "inactive") {
+      const actualMimeType = recorder.mimeType || "audio/webm"
       blob = await new Promise<Blob | null>((resolve) => {
         recorder.onstop = () => {
           if (chunksRef.current.length > 0) {
-            resolve(new Blob(chunksRef.current, { type: "audio/webm" }))
+            resolve(new Blob(chunksRef.current, { type: actualMimeType }))
           } else {
             resolve(null)
           }
@@ -205,8 +231,11 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     if (workletNodeRef.current && sourceRef.current) {
       sourceRef.current.disconnect()
       gainRef.current?.disconnect()
+      compressorRef.current?.disconnect()
+      recDestRef.current = null
       workletNodeRef.current.disconnect()
       workletNodeRef.current = null
+      compressorRef.current = null
       gainRef.current = null
       sourceRef.current = null
     }

@@ -97,7 +97,8 @@ export const usePlaybackPlayer = (
       contextRef.current = null
     }
 
-    const ctx = new AudioContext({ sampleRate: 48000 })
+    // ネイティブサンプルレートで作成（iOS は sampleRate 指定を無視するため）
+    const ctx = new AudioContext()
     contextRef.current = ctx
 
     const ag = getAccompanimentGain()
