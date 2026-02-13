@@ -63,7 +63,6 @@ const Practice = () => {
 
   // 画面遷移で戻ってきたとき前回の歌唱データをクリア
   useEffect(() => {
-    livePitchRef.current = []
     setPitchData([])
     setPlaybackPosition(0)
   }, [setPitchData, setPlaybackPosition])
@@ -74,8 +73,8 @@ const Practice = () => {
     getLastSavedRecording().then((rec) => setHasRecording(rec != null))
   }, [])
 
-  /** リアルタイム中のピッチデータ。ref で直接保持し、React state 更新を避ける */
-  const livePitchRef = useRef<PitchEntry[]>([])
+  const pitchBufferRef = useRef<PitchEntry[]>([])
+  const flushScheduledRef = useRef(false)
   // playback.getPlaybackPositionMs を ref 経由で pitchDetection に渡す
   const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
 
@@ -83,21 +82,23 @@ const Practice = () => {
   const [scoreDialogOpen, setScoreDialogOpen] = useState(false)
   const [lastScore, setLastScore] = useState(0)
   const lastBlobRef = useRef<Blob | null>(null)
+  const pitchDataRef = useRef<PitchEntry[]>([])
   const recordingOffsetMsRef = useRef(0)
+  useEffect(() => {
+    pitchDataRef.current = pitchData
+  }, [pitchData])
 
   const getRecordingOffsetMsRef = useRef<() => number>(() => 0)
 
   const handleStopped = useCallback(
     (blob: Blob | null) => {
-      // 停止時に ref のデータを atom に同期（保存・playback 画面用）
-      setPitchData([...livePitchRef.current])
-      const score = computeScore(livePitchRef.current, melodyData?.notes ?? [])
+      const score = computeScore(pitchDataRef.current, melodyData?.notes ?? [])
       setLastScore(score)
       lastBlobRef.current = blob
       recordingOffsetMsRef.current = getRecordingOffsetMsRef.current()
       setScoreDialogOpen(true)
     },
-    [melodyData, setPitchData],
+    [melodyData],
   )
 
   const handleSave = useCallback(async () => {
@@ -109,7 +110,7 @@ const Practice = () => {
       unitStartMs: 0,
       unitEndMs: melodyData.totalDurationMs,
       audioBlob: lastBlobRef.current,
-      pitchData: livePitchRef.current,
+      pitchData: pitchDataRef.current,
       score: lastScore,
       totalDurationMs: melodyData.totalDurationMs,
       recordingOffsetMs: recordingOffsetMsRef.current,
@@ -125,10 +126,18 @@ const Practice = () => {
   const pitchDetection = usePitchDetection({
     onPitch: useCallback(
       (midi: number, timeMs: number) => {
-        // ref に直接 push。React state 更新なし → メインスレッド負荷ゼロ
-        livePitchRef.current.push({ timeMs: timeMs - micDelayMs, midi })
+        pitchBufferRef.current.push({ timeMs: timeMs - micDelayMs, midi })
+        if (!flushScheduledRef.current) {
+          flushScheduledRef.current = true
+          requestAnimationFrame(() => {
+            const batch = pitchBufferRef.current
+            pitchBufferRef.current = []
+            flushScheduledRef.current = false
+            setPitchData((prev) => [...prev, ...batch])
+          })
+        }
       },
-      [micDelayMs],
+      [setPitchData, micDelayMs],
     ),
     getPlaybackPositionMs: () => getPlaybackPositionMsRef.current(),
     onError: useCallback((err: Error) => {
@@ -181,7 +190,6 @@ const Practice = () => {
   }, [isPracticing, positionMs])
 
   // 再生中は requestAnimationFrame で位置を毎フレーム更新し、PitchBar の位置線をスムーズに動かす
-  // smoothPositionMs の更新で再レンダリングが走り、PitchBar が最新の livePitchRef を参照する
   useEffect(() => {
     if (!isPracticing) return
     let rafId: number
@@ -236,7 +244,6 @@ const Practice = () => {
   }, [playback, isPracticing])
 
   const handleStart = async () => {
-    livePitchRef.current = []
     setIsStartingPlayback(true)
     try {
       await playback.startPlayback()
@@ -406,7 +413,7 @@ const Practice = () => {
           {/* 五線譜風の音程バーコンポーネント */}
           <PitchBar
             notes={melodyData?.notes ?? []}
-            pitchData={isPracticing ? livePitchRef.current : pitchData}
+            pitchData={pitchData}
             totalDurationMs={totalDurationMs}
             positionMs={isPracticing ? smoothPositionMs : viewPositionMs}
             bpm={melodyData?.bpm}
