@@ -24,6 +24,38 @@ const computeRms = (samples: Float32Array): number => {
   return Math.sqrt(sum / samples.length)
 }
 
+/** GainNode で増幅した信号が ±1.0 を超えている場合、正規化して YIN の精度を保つ */
+const normalizeIfClipped = (samples: Float32Array): Float32Array => {
+  let peak = 0
+  for (let i = 0; i < samples.length; i++) {
+    const abs = Math.abs(samples[i])
+    if (abs > peak) peak = abs
+  }
+  if (peak <= 1.0) return samples
+  // クリップしている → ピークで割って ±1.0 に正規化
+  const normalized = new Float32Array(samples.length)
+  const scale = 1.0 / peak
+  for (let i = 0; i < normalized.length; i++) {
+    normalized[i] = samples[i] * scale
+  }
+  return normalized
+}
+
+/** メディアンフィルタ用バッファ。直近 N フレームの MIDI 値を保持する */
+const MEDIAN_WINDOW = 5
+const midiHistory: number[] = []
+
+/** 直近 N フレームの中央値を返す。スパイク的なオクターブ誤検出を除去する */
+const medianFilter = (midi: number): number => {
+  midiHistory.push(midi)
+  if (midiHistory.length > MEDIAN_WINDOW) midiHistory.shift()
+  // 有効な値（> 0）だけで中央値を取る。無音フレームは除外
+  const valid = midiHistory.filter((v) => v > 0)
+  if (valid.length === 0) return 0
+  valid.sort((a, b) => a - b)
+  return valid[Math.floor(valid.length / 2)]
+}
+
 self.onmessage = (
   e: MessageEvent<
     | { samples: Float32Array; sampleRate: number }
@@ -44,7 +76,7 @@ self.onmessage = (
 
     // 音量が小さすぎる場合はピッチ検出をスキップ（伴奏混入対策）
     if (computeRms(samples) < rmsThreshold) {
-      self.postMessage({ midi: 0 })
+      self.postMessage({ midi: medianFilter(0) })
       return
     }
 
@@ -58,10 +90,14 @@ self.onmessage = (
         probabilityThreshold: 0.3,
       })
     }
-    const freq = detectPitch(samples)
+    // GainNode による増幅でクリップした信号を正規化してから YIN に渡す
+    const normalizedSamples = normalizeIfClipped(samples)
+    const freq = detectPitch(normalizedSamples)
     let midi = freq ? Math.round(frequencyToMidi(freq)) : 0
     // 歌声の範囲外（C2=36未満 or C6=84超）はオクターブ誤検出とみなし無視
     if (midi > 0 && (midi < 36 || midi > 84)) midi = 0
+    // メディアンフィルタで単発のオクターブ跳びを除去
+    midi = medianFilter(midi)
     self.postMessage({ midi })
   } catch (err) {
     self.postMessage({

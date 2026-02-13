@@ -13,9 +13,9 @@ import processorUrl from "./pitch-processor.ts?worker&url"
 /** ピッチ検出のサンプル間隔。20ms で 50/s になりリアルタイム性が上がる */
 export const PITCH_INTERVAL_MS = 20
 /** マイク入力の増幅度。DSP(AGC/NS)を無効にした生信号を増幅する。
- *  高すぎるとクリッピングで波形が歪みYINの誤検出を招くため、
- *  DynamicsCompressorNode と併用して適度な値にする */
-const INPUT_GAIN_MOBILE = 10
+ *  Worker 側で normalizeIfClipped を行うためクリッピングによるYIN誤検出は軽減される。
+ *  録音は DynamicsCompressorNode 経由でクリッピング防止済み */
+const INPUT_GAIN_MOBILE = 15
 const INPUT_GAIN_DESKTOP = 3
 /** RMS 音量ゲート閾値。この値未満の音量はノイズ/伴奏漏れとみなしピッチ検出をスキップする */
 const RMS_THRESHOLD_MOBILE = 0.02
