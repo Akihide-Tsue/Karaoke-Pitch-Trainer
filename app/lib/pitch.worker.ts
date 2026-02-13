@@ -54,11 +54,14 @@ self.onmessage = (
         // YIN 自己相関の許容閾値（0〜1）。大きいほど弱い信号でも検出する
         threshold: yinThreshold,
         // 検出結果を採用する最低確率（0〜1）。低いほど不確実な検出も返す
-        probabilityThreshold: 0.1,
+        // 0.1 だとオクターブ上の倍音を誤検出しやすいため 0.3 に設定
+        probabilityThreshold: 0.3,
       })
     }
     const freq = detectPitch(samples)
-    const midi = freq ? Math.round(frequencyToMidi(freq)) : 0
+    let midi = freq ? Math.round(frequencyToMidi(freq)) : 0
+    // 歌声の範囲外（C2=36未満 or C6=84超）はオクターブ誤検出とみなし無視
+    if (midi > 0 && (midi < 36 || midi > 84)) midi = 0
     self.postMessage({ midi })
   } catch (err) {
     self.postMessage({
