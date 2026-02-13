@@ -477,9 +477,10 @@ const Practice = () => {
               {(() => {
                 const live = livePitchRef.current
                 const lastPitch = live[live.length - 1]
-                const lat = playback.getDebugLatency()
-                const delta = lastPitch ? smoothPositionMs - lastPitch.timeMs : 0
-                return `delta:${Math.round(delta)}ms n:${live.length} oLat:${(lat.outputLatency * 1000).toFixed(0)}ms bLat:${(lat.baseLatency * 1000).toFixed(0)}ms`
+                const nowMs = playback.getPlaybackPositionMs()
+                const deltaState = lastPitch ? smoothPositionMs - lastPitch.timeMs : 0
+                const deltaLive = lastPitch ? nowMs - lastPitch.timeMs : 0
+                return `dS:${Math.round(deltaState)} dL:${Math.round(deltaLive)} n:${live.length} sm:${Math.round(smoothPositionMs)} now:${Math.round(nowMs)}`
               })()}
             </Typography>
           )}
