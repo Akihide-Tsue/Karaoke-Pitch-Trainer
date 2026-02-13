@@ -111,7 +111,7 @@ self.onmessage = (
     }
     // GainNode による増幅でクリップした信号を正規化してからピッチ検出に渡す
     const normalizedSamples = normalizeIfClipped(samples)
-    const result = detectPitch!(normalizedSamples)
+    const result = detectPitch?.(normalizedSamples)
     let midi = 0
     if (result && result.freq > 0 && result.probability >= minProbability) {
       midi = Math.round(frequencyToMidi(result.freq))

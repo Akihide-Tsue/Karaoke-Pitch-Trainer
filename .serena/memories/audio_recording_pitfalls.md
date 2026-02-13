@@ -53,8 +53,9 @@ source → GainNode → AudioWorkletNode (ピッチ検出) → dummyDest
 
 ### 現在の設定
 
-- `yinThreshold`: iOS 0.4, Android 0.5, デスクトップ 0.2（大きいほど弱い信号でも検出）
-- `probabilityThreshold`: iOS 0.3, Android 0.15, デスクトップ 0.3（検出結果を採用する最低確率）
+- アルゴリズム: MacLeod (MPM) — YIN より基本周波数と倍音の区別に優れ、オクターブ誤検出が少ない
+- `cutoff`: モバイル 0.9, デスクトップ 0.97（最高ピークの何%以上を採用するか。低いほど弱い信号でも検出）
+- `minProbability`: iOS 0.3, Android 0.1, デスクトップ 0.3（検出結果を採用する最低確率）
   - Android は信号が弱く probability が低くなりがちなため緩めに設定
 - MIDI範囲制限: C2(36)〜C6(84)の範囲外はオクターブ誤検出とみなし無視
 
@@ -66,11 +67,12 @@ source → GainNode → AudioWorkletNode (ピッチ検出) → dummyDest
 
 ### 過去に試してダメだった設定
 
-- `probabilityThreshold: 0.1`: オクターブ上の倍音を誤検出しやすい
-- `probabilityThreshold: 0.3`（Android）: 信号が弱く probability が低いためほとんど棄却され全くピッチ検出しない
-- `yinThreshold: 0.35`（Android）: 感度不足。0.5 に上げて改善
+- YIN アルゴリズム全般: 倍音を基本周波数と間違えやすくオクターブ誤検出が頻発 → MacLeod (MPM) に変更
+- YIN `probabilityThreshold: 0.1`: オクターブ上の倍音を誤検出しやすい
+- YIN `probabilityThreshold: 0.3`（Android）: 信号が弱く probability が低いためほとんど棄却され全くピッチ検出しない
+- YIN `yinThreshold: 0.35`（Android）: 感度不足。0.5 に上げて改善したが根本解決にならず
 - メディアンウィンドウ5: 描画遅延が体感できるレベル
-- normalizeIfClipped なし: GainNode増幅でクリップした信号がYINで誤検出
+- normalizeIfClipped なし: GainNode増幅でクリップした信号でピッチ誤検出
 - Compressor後でピッチ検出: 倍音が強調されオクターブ上に誤検出
 
 ## 録音再生時の音量バランス
