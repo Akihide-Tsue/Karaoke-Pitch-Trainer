@@ -12,7 +12,7 @@ import processorUrl from "./pitch-processor.ts?worker&url"
 export const PITCH_INTERVAL_MS = 20
 
 /** マイク入力の増幅度（ピッチ検出用） */
-const INPUT_GAIN_IOS = 20
+const INPUT_GAIN_IOS = 25
 const INPUT_GAIN_ANDROID = 20
 const INPUT_GAIN_DESKTOP = 3
 
