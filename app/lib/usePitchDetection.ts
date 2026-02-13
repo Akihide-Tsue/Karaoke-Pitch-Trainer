@@ -78,12 +78,15 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       const isMobile =
         /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-      // 歌唱アプリでは通話用DSP（エコーキャンセル・ノイズ抑制・自動ゲイン）を
-      // すべて無効にし、GainNode + DynamicsCompressorNode で品質を制御する。
-      // これらのDSPは歌声の倍音やダイナミクスを劣化させるため。
+      const isIOS =
+        /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+      // 歌唱アプリでは通話用DSP（ノイズ抑制・自動ゲイン）を無効にし、
+      // GainNode + DynamicsCompressorNode で品質を制御する。
+      // ただし iOS はスピーカーとマイクが近く伴奏が録音に混入するためechoCancellation のみ有効にする。
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
+          echoCancellation: isIOS,
           noiseSuppression: false,
           autoGainControl: false,
           channelCount: 1,

@@ -35,6 +35,7 @@
       "mcp__serena__list_memories",
       "mcp__serena__read_memory",
       "mcp__serena__find_symbol",
+      "mcp__serena__edit_memory",
       "Bash(git -C /Users/akihidetsue/work/pitch-poc diff --staged)"
     ]
   }
