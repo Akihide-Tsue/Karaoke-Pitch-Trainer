@@ -25,7 +25,7 @@ const PLAYBACK_RECORDING_GAIN_PC = 1.0
 /** モバイル（Android）音量（0–1） */
 const PLAYBACK_RECORDING_GAIN_ANDROID = 1.0
 /** iOS は echoCancellation で伴奏が抑制されるため、声が相対的に大きくなるため下げる */
-const PLAYBACK_RECORDING_GAIN_IOS = 0.7
+const PLAYBACK_RECORDING_GAIN_IOS = 0.6
 
 const getRecordingGain = () => {
   if (!isMobile()) return PLAYBACK_RECORDING_GAIN_PC

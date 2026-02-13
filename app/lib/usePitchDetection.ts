@@ -15,10 +15,14 @@ export const PITCH_INTERVAL_MS = 20
 /** マイク入力の増幅度。DSP(AGC/NS)を無効にした生信号を増幅する。
  *  Worker 側で normalizeIfClipped を行うためクリッピングによるYIN誤検出は軽減される。
  *  録音は DynamicsCompressorNode 経由でクリッピング防止済み */
-const INPUT_GAIN_MOBILE = 15
+const INPUT_GAIN_IOS = 18 // 感度
+const INPUT_GAIN_ANDROID = 20 // 感度
 const INPUT_GAIN_DESKTOP = 3
-/** RMS 音量ゲート閾値。この値未満の音量はノイズ/伴奏漏れとみなしピッチ検出をスキップする */
-const RMS_THRESHOLD_MOBILE = 0.02
+/** RMS 音量ゲート閾値。この値未満の音量はノイズ/伴奏漏れとみなしピッチ検出をスキップする
+ *  iOS: echoCancellation有効で伴奏が抑制されるため高めでOK
+ *  Android: DSP全無効で信号が弱いため低めに設定 */
+const RMS_THRESHOLD_IOS = 0.02
+const RMS_THRESHOLD_ANDROID = 0.008
 const RMS_THRESHOLD_DESKTOP = 0.01
 
 export interface UsePitchDetectionOptions {
@@ -118,7 +122,11 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
         config: {
           // YIN 自己相関の許容閾値（デフォルト 0.2）。大きいほど弱い信号でもピッチを検出する
           yinThreshold: isMobile ? 0.35 : 0.2,
-          rmsThreshold: isMobile ? RMS_THRESHOLD_MOBILE : RMS_THRESHOLD_DESKTOP,
+          rmsThreshold: isIOS
+            ? RMS_THRESHOLD_IOS
+            : isMobile
+              ? RMS_THRESHOLD_ANDROID
+              : RMS_THRESHOLD_DESKTOP,
         },
       })
       worker.onmessage = (
@@ -138,7 +146,11 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       sourceRef.current = source
 
       const gain = context.createGain()
-      gain.gain.value = isMobile ? INPUT_GAIN_MOBILE : INPUT_GAIN_DESKTOP
+      gain.gain.value = isIOS
+        ? INPUT_GAIN_IOS
+        : isMobile
+          ? INPUT_GAIN_ANDROID
+          : INPUT_GAIN_DESKTOP
       gainRef.current = gain
 
       // クリッピング防止: GainNode で増幅した信号が 0dBFS を超えないよう圧縮する
