@@ -31,14 +31,13 @@ export interface UsePitchDetectionOptions {
 
 /** マイク入力パイプラインの推定レイテンシ (ms) を返す。
  *  AudioWorklet バッファ遅延 + AudioContext.inputLatency（利用可能な場合）。
- *  Android ではこの値が 200-400ms 程度になり、ピッチ表示の遅延原因となる。 */
+ *  Android では inputLatency API が HAL 遅延を正しく報告しないため、
+ *  practice.tsx 側で自動キャリブレーションにより残差を補正する。 */
 const estimateInputLatencyMs = (ctx: AudioContext, bufferSize: number): number => {
   const bufferDelayMs = (bufferSize / ctx.sampleRate) * 1000
-  // Chrome 102+ exposes inputLatency (HAL + OS buffering)
   const inputLatency = (ctx as unknown as { inputLatency?: number }).inputLatency ?? 0
-  // baseLatency は出力側の概算だが、inputLatency が無い環境ではフォールバック
-  const fallbackLatency = inputLatency > 0 ? 0 : (ctx.baseLatency ?? 0)
-  return bufferDelayMs + (inputLatency + fallbackLatency) * 1000
+  const baseLatency = inputLatency > 0 ? 0 : (ctx.baseLatency ?? 0)
+  return bufferDelayMs + (inputLatency + baseLatency) * 1000
 }
 
 export interface UsePitchDetectionResult {

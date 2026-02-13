@@ -81,6 +81,15 @@ const Practice = () => {
   const livePitchRef = useRef<PitchEntry[]>([])
   const [pitchVersion, setPitchVersion] = useState(0)
 
+  /** 自動キャリブレーション: API の inputLatency が不十分な場合（Android 等）、
+   *  最初の数秒間のピッチデータで実測遅延を計算し、timeMs を補正する。
+   *  calibrationSamples に dL(= nowMs - lastPitch.timeMs) を収集し、
+   *  CALIBRATION_COUNT 個溜まったら中央値を確定して以降のデータに適用する。 */
+  const CALIBRATION_COUNT = 50
+  const calibrationSamplesRef = useRef<number[]>([])
+  const calibrationOffsetRef = useRef(0)
+  const calibrationDoneRef = useRef(false)
+
   // playback.getPlaybackPositionMs を ref 経由で pitchDetection に渡す
   const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
 
@@ -199,14 +208,38 @@ const Practice = () => {
     if (!isPracticing) return
     livePitchRef.current = []
     setPitchVersion(0)
+    calibrationSamplesRef.current = []
+    calibrationOffsetRef.current = 0
+    calibrationDoneRef.current = false
     let rafId: number
     const tick = () => {
-      setSmoothPositionMs(getPlaybackPositionMsFn.current())
+      const nowMs = getPlaybackPositionMsFn.current()
+      setSmoothPositionMs(nowMs)
       if (pitchBufferRef.current.length > 0) {
         const batch = pitchBufferRef.current
         pitchBufferRef.current = []
+        const offset = calibrationOffsetRef.current
         for (let i = 0; i < batch.length; i++) {
+          batch[i].timeMs -= offset
           livePitchRef.current.push(batch[i])
+        }
+        // キャリブレーション: 最初の CALIBRATION_COUNT 個の有声ピッチで
+        // nowMs - timeMs の中央値を計算し、以降の timeMs 補正に使う
+        if (!calibrationDoneRef.current) {
+          const lastEntry = livePitchRef.current[livePitchRef.current.length - 1]
+          if (lastEntry && lastEntry.midi > 0 && nowMs > 1000) {
+            calibrationSamplesRef.current.push(nowMs - lastEntry.timeMs)
+          }
+          if (calibrationSamplesRef.current.length >= CALIBRATION_COUNT) {
+            const sorted = calibrationSamplesRef.current.slice().sort((a, b) => a - b)
+            const median = sorted[Math.floor(sorted.length / 2)]
+            // 既存の全エントリを遡って補正
+            for (const entry of livePitchRef.current) {
+              entry.timeMs -= median
+            }
+            calibrationOffsetRef.current = median
+            calibrationDoneRef.current = true
+          }
         }
         setPitchVersion((v) => v + 1)
       }
@@ -479,8 +512,9 @@ const Practice = () => {
                 const lastPitch = live[live.length - 1]
                 const nowMs = playback.getPlaybackPositionMs()
                 const deltaLive = lastPitch ? nowMs - lastPitch.timeMs : 0
-                const comp = Math.round(pitchDetection.getInputLatencyMs())
-                return `dL:${Math.round(deltaLive)} comp:${comp} n:${live.length}`
+                const cal = Math.round(calibrationOffsetRef.current)
+                const done = calibrationDoneRef.current ? "Y" : "N"
+                return `dL:${Math.round(deltaLive)} cal:${cal}(${done}) n:${live.length}`
               })()}
             </Typography>
           )}
