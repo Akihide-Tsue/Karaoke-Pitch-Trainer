@@ -1,24 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { loadAudioBuffer } from "~/lib/useAudioBufferLoader"
 
-/** 再生画面での伴奏・ガイドのゲイン（0–1）。PC */
+/** 録音再生画面での伴奏音量（0–1）。PC */
 const PLAYBACK_ACCOMPANIMENT_GAIN_PC = 0.2
-/** モバイル */
-const PLAYBACK_ACCOMPANIMENT_GAIN_MOBILE = 0.1
+/** モバイル（Android） */
+const PLAYBACK_ACCOMPANIMENT_GAIN_ANDROID = 0.05
 
-const getAccompanimentGain = () =>
-  isMobile()
-    ? PLAYBACK_ACCOMPANIMENT_GAIN_MOBILE
-    : PLAYBACK_ACCOMPANIMENT_GAIN_PC
+/** モバイル（iOS） */
+const PLAYBACK_ACCOMPANIMENT_GAIN_IOS = 0.12
+
+const isMobile = () =>
+  /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+
+const getAccompanimentGain = () => {
+  if (!isMobile()) return PLAYBACK_ACCOMPANIMENT_GAIN_PC
+  return /Android/i.test(navigator.userAgent)
+    ? PLAYBACK_ACCOMPANIMENT_GAIN_ANDROID
+    : PLAYBACK_ACCOMPANIMENT_GAIN_IOS
+}
 
 /** 再生画面での録音（歌声）のゲイン。マイク録音は小さくなりがちなため必要であればブースト */
 const PLAYBACK_RECORDING_GAIN_PC = 1.0
 /** モバイル（iOS/Android）は録音が特に小さいためさらにブースト */
 const PLAYBACK_RECORDING_GAIN_MOBILE = 1.0
-
-const isMobile = () =>
-  /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
-  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
 
 const getRecordingGain = () =>
   isMobile() ? PLAYBACK_RECORDING_GAIN_MOBILE : PLAYBACK_RECORDING_GAIN_PC

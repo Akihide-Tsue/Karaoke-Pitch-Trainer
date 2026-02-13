@@ -36,7 +36,9 @@
       "mcp__serena__read_memory",
       "mcp__serena__find_symbol",
       "mcp__serena__edit_memory",
-      "Bash(git -C /Users/akihidetsue/work/pitch-poc diff --staged)"
+      "Bash(git -C /Users/akihidetsue/work/pitch-poc diff --staged)",
+      "Bash(git -C /Users/akihidetsue/work/pitch-poc branch:*)",
+      "Bash(pnpm --dir /Users/akihidetsue/work/pitch-poc run typecheck)"
     ]
   }
 }
