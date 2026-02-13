@@ -161,13 +161,15 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
         workerRef.current.postMessage({ samples, sampleRate }, [samples.buffer])
       }
 
-      // 信号経路: source → gain → compressor → workletNode (ピッチ検出)
-      //                                       → recDest (録音)
+      // 信号経路:
+      //   source → gain → workletNode (ピッチ検出) → dummyDest
+      //                 → compressor → recDest (録音)
+      // ピッチ検出は Compressor 前の信号を使う（Compressor が倍音を強調しオクターブ誤検出を招くため）
+      // 録音は Compressor 後の信号を使う（クリッピング防止のため）
       source.connect(gain)
+      gain.connect(workletNode)
       gain.connect(compressor)
-      compressor.connect(workletNode)
       // workletNode は出力先が必要だが、スピーカーには出さない（マイク音声がスピーカーから出てしまうため）
-      // ダミーの destination に接続して AudioWorklet の処理を維持する
       const dummyDest = context.createMediaStreamDestination()
       workletNode.connect(dummyDest)
       // 録音用: 増幅+圧縮済みの信号を録音する（生streamではなく加工後の信号）
