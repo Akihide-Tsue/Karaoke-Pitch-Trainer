@@ -23,6 +23,9 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Claude Code
+.claude/commands
+
 # Editor
 .vscode/*
 !.vscode/extensions.json
