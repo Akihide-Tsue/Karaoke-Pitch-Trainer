@@ -1,9 +1,9 @@
 /**
- * Web Audio API (AudioWorklet) + pitchfinder によるピッチ検出
+ * Web Audio API (AudioWorklet) + pitchy によるピッチ検出
  * MediaRecorder による録音
  * PITCH_INTERVAL_MS 間隔で MIDI ノート番号を取得し、コールバックで渡す
  *
- * AudioWorklet で PCM を収集し、pitch.worker.ts (Web Worker) で YIN 計算を行う。
+ * AudioWorklet で PCM を収集し、pitch.worker.ts (Web Worker) で MPM 計算を行う。
  * AudioWorklet スレッドは realtime priority のため重い処理を置かず、
  * サンプルの転送のみを担当する。
  */
@@ -13,17 +13,14 @@ import processorUrl from "./pitch-processor.ts?worker&url"
 /** ピッチ検出のサンプル間隔。20ms で 50/s になりリアルタイム性が上がる */
 export const PITCH_INTERVAL_MS = 20
 /** マイク入力の増幅度。DSP(AGC/NS)を無効にした生信号を増幅する。
- *  Worker 側で normalizeIfClipped を行うためクリッピングによるYIN誤検出は軽減される。
+ *  Worker 側で normalizeIfClipped を行うためクリッピングによるMPM誤検出は軽減される。
  *  録音は DynamicsCompressorNode 経由でクリッピング防止済み */
-const INPUT_GAIN_IOS = 18 // 感度
+const INPUT_GAIN_IOS = 20 // 感度
 const INPUT_GAIN_ANDROID = 20 // 感度
 const INPUT_GAIN_DESKTOP = 3
-/** RMS 音量ゲート閾値。この値未満の音量はノイズ/伴奏漏れとみなしピッチ検出をスキップする
- *  iOS: echoCancellation有効で伴奏が抑制されるため高めでOK
- *  Android: DSP全無効で信号が弱いため低めに設定 */
-const RMS_THRESHOLD_IOS = 0.02
-const RMS_THRESHOLD_ANDROID = 0.008
-const RMS_THRESHOLD_DESKTOP = 0.01
+/** pitchy の minClarity: clarity がこの値未満の検出結果は棄却する。
+ *  MPM の clarity は安定しているため全プラットフォーム共通 */
+const MIN_CLARITY = 0.8
 
 export interface UsePitchDetectionOptions {
   /** 検出したピッチを渡す。timeMs は再生位置（伴奏の currentTime）を渡すと正確に同期する */
@@ -111,24 +108,15 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       // AudioWorklet processor を登録（2回目以降は無視される）
       await context.audioWorklet.addModule(processorUrl)
 
-      // pitch.worker.ts（YIN 計算用 Web Worker）を起動
+      // pitch.worker.ts（MPM ピッチ検出用 Web Worker）を起動
       const worker = new Worker(new URL("./pitch.worker.ts", import.meta.url), {
         type: "module",
       })
       workerRef.current = worker
-      // MacLeod (MPM) のパラメータと RMS 閾値を設定
+      // pitchy (MPM) のパラメータを設定（デフォルトに近いシンプルな構成）
       worker.postMessage({
         config: {
-          // MacLeod cutoff: 最高ピークの何%以上のピークを採用するか（0〜1）
-          // 低いほど弱い信号でもピッチを検出する。Android は信号が弱いため緩めに設定
-          cutoff: isMobile ? 0.9 : 0.97,
-          // probability がこの値未満の検出結果は棄却する
-          minProbability: isIOS ? 0.3 : isMobile ? 0.1 : 0.3,
-          rmsThreshold: isIOS
-            ? RMS_THRESHOLD_IOS
-            : isMobile
-              ? RMS_THRESHOLD_ANDROID
-              : RMS_THRESHOLD_DESKTOP,
+          minClarity: MIN_CLARITY,
         },
       })
       worker.onmessage = (

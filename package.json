@@ -23,18 +23,18 @@
     "dexie": "^4.3.0",
     "isbot": "^5.1.31",
     "jotai": "^2.17.1",
-    "pitchfinder": "^2.3.4",
+    "pitchy": "^4.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router": "7.12.0"
   },
   "devDependencies": {
-    "husky": "^9.1.7",
     "@biomejs/biome": "^2.3.14",
     "@react-router/dev": "7.12.0",
     "@types/node": "^22",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "husky": "^9.1.7",
     "typescript": "^5.9.2",
     "vite": "^7.1.7",
     "vite-tsconfig-paths": "^5.1.4"
