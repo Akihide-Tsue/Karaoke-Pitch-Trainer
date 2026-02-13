@@ -11,11 +11,16 @@ import processorUrl from "./pitch-processor.ts?worker&url"
 /** ピッチ検出のサンプル間隔（ms）。20ms で 50fps */
 export const PITCH_INTERVAL_MS = 20
 
-/** マイク入力の増幅度（ピッチ検出用）。
- *  録音は生 source から直接取るため、この増幅の影響を受けない */
+/** マイク入力の増幅度（ピッチ検出用） */
 const INPUT_GAIN_IOS = 20
 const INPUT_GAIN_ANDROID = 20
 const INPUT_GAIN_DESKTOP = 3
+
+/** 録音パスの増幅度。ピッチ検出用ほど大きくせず、声を聴き取れる程度にブーストする。
+ *  再生時のゲインは 1.0 にし、ここで録音品質を決める */
+const REC_GAIN_IOS = 3
+const REC_GAIN_ANDROID = 5
+const REC_GAIN_DESKTOP = 3
 
 export interface UsePitchDetectionOptions {
   onPitch: (midi: number, timeMs: number) => void
@@ -35,6 +40,7 @@ interface Session {
   context: AudioContext
   source: MediaStreamAudioSourceNode
   gain: GainNode
+  recGain: GainNode
   workletNode: AudioWorkletNode
   worker: Worker
   recorder: MediaRecorder
@@ -129,15 +135,24 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
         ])
       }
 
+      // 録音用: 適度にブーストして録音（再生時のゲインは 1.0）
+      const recGain = context.createGain()
+      recGain.gain.value = isIOS
+        ? REC_GAIN_IOS
+        : isMobile
+          ? REC_GAIN_ANDROID
+          : REC_GAIN_DESKTOP
+
       // 信号経路:
-      //   source → gain → workletNode → dummyDest (ピッチ検出、スピーカーには出さない)
-      //   source → recDest (録音: 生信号)
+      //   source → gain(20x) → workletNode → dummyDest (ピッチ検出、スピーカーには出さない)
+      //   source → recGain(3-5x) → recDest (録音: 適度に増幅)
       source.connect(gain)
       gain.connect(workletNode)
       workletNode.connect(context.createMediaStreamDestination())
 
       const recDest = context.createMediaStreamDestination()
-      source.connect(recDest)
+      source.connect(recGain)
+      recGain.connect(recDest)
 
       const intervalId = setInterval(() => {
         const timeMs = getPlaybackPositionMs?.() ?? 0
@@ -167,6 +182,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
         context,
         source,
         gain,
+        recGain,
         workletNode,
         worker,
         recorder,
@@ -205,6 +221,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     // リソース解放
     session.source.disconnect()
     session.gain.disconnect()
+    session.recGain.disconnect()
     session.workletNode.disconnect()
     session.worker.terminate()
     for (const t of session.stream.getTracks()) t.stop()
