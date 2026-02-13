@@ -17,6 +17,9 @@ export const PITCH_INTERVAL_MS = 20
  *  DynamicsCompressorNode と併用して適度な値にする */
 const INPUT_GAIN_MOBILE = 10
 const INPUT_GAIN_DESKTOP = 3
+/** RMS 音量ゲート閾値。この値未満の音量はノイズ/伴奏漏れとみなしピッチ検出をスキップする */
+const RMS_THRESHOLD_MOBILE = 0.02
+const RMS_THRESHOLD_DESKTOP = 0.01
 
 export interface UsePitchDetectionOptions {
   /** 検出したピッチを渡す。timeMs は再生位置（伴奏の currentTime）を渡すと正確に同期する */
@@ -89,7 +92,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       streamRef.current = stream
 
       // マイク専用 AudioContext をネイティブサンプルレートで作成
-      // （再生用 48kHz context と共有するとリサンプリングで信号が劣化するため）
+      // （iOS は sampleRate 指定を無視するためハードコードしない）
       const context = new AudioContext({ latencyHint: "interactive" })
       contextRef.current = context
       if (context.state === "suspended") {
@@ -107,19 +110,14 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       })
       workerRef.current = worker
       // モバイルでは YIN の閾値を緩和して弱い信号でもピッチを拾いやすくする
-      // iOS ではエコーキャンセル後も伴奏が微小に残るため RMS 閾値を高めにして誤検出を抑制
-      if (isMobile) {
-        // マイク感度
-        worker.postMessage({
-          config: {
-            // YIN 自己相関の許容閾値（デフォルト 0.2）。大きいほど弱い信号でもピッチを検出する
-            yinThreshold: 0.35,
-            // RMS 音量ゲート。この値未満の音量はノイズ/伴奏混入とみなしスキップする
-            // モバイル端末（特にiOSはエコーキャンセリング後も伴奏が微小に残る） 伴奏が微小に残るため高め (0.03)、Android は低め (0.01)
-            rmsThreshold: isMobile ? 0.03 : 0.01,
-          },
-        })
-      }
+      // スピーカーから漏れた伴奏の誤検出を防ぐため RMS 閾値を高めに設定
+      worker.postMessage({
+        config: {
+          // YIN 自己相関の許容閾値（デフォルト 0.2）。大きいほど弱い信号でもピッチを検出する
+          yinThreshold: isMobile ? 0.35 : 0.2,
+          rmsThreshold: isMobile ? RMS_THRESHOLD_MOBILE : RMS_THRESHOLD_DESKTOP,
+        },
+      })
       worker.onmessage = (
         ev: MessageEvent<{ midi: number } | { error: string }>,
       ) => {
@@ -165,7 +163,8 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       source.connect(gain)
       gain.connect(compressor)
       compressor.connect(workletNode)
-      // destination に繋がないことで伴奏の出力に干渉しない
+      // workletNode は出力先が必要だが、スピーカーには出さない（マイク音声がスピーカーから出てしまうため）
+      // ダミーの destination に接続して AudioWorklet の処理を維持する
       const dummyDest = context.createMediaStreamDestination()
       workletNode.connect(dummyDest)
       // 録音用: 増幅+圧縮済みの信号を録音する（生streamではなく加工後の信号）
@@ -178,7 +177,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
         onPitch(latestMidiRef.current, timeMs)
       }, PITCH_INTERVAL_MS)
 
-      // MediaRecorder: 増幅+圧縮済みの信号を録音（生streamではなく加工後）
+      // MediaRecorder: recDest（増幅+圧縮済み）から録音。生 stream だと音量が小さすぎる
       chunksRef.current = []
       const recMimeType = [
         "audio/webm;codecs=opus",
