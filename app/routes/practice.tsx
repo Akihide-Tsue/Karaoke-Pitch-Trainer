@@ -447,6 +447,16 @@ const Practice = () => {
             {((isPracticing ? smoothPositionMs : viewPositionMs) / 1000).toFixed(1)}s /{" "}
             {(totalDurationMs / 1000).toFixed(1)}s
           </Typography>
+          {isPracticing && (
+            <Typography variant="caption" color="error" sx={{ fontSize: "10px" }}>
+              {(() => {
+                const lastPitch = pitchData[pitchData.length - 1]
+                const lat = playback.getDebugLatency()
+                const delta = lastPitch ? smoothPositionMs - lastPitch.timeMs : 0
+                return `delta:${Math.round(delta)}ms oLat:${(lat.outputLatency * 1000).toFixed(0)}ms bLat:${(lat.baseLatency * 1000).toFixed(0)}ms`
+              })()}
+            </Typography>
+          )}
         </Box>
       </Paper>
 

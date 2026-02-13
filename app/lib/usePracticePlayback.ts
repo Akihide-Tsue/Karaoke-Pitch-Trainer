@@ -52,6 +52,7 @@ export interface UsePracticePlaybackResult {
   seekSeconds: number
   /** 録音開始から伴奏再生開始までのオフセット (ms)。再生時の同期補正に使用 */
   getRecordingOffsetMs: () => number
+  getDebugLatency: () => { outputLatency: number; baseLatency: number }
 }
 
 /**
@@ -496,5 +497,14 @@ export const usePracticePlayback = (
     toggleGuideVocal,
     seekSeconds: SEEK_SECONDS,
     getRecordingOffsetMs: () => recordingOffsetMsRef.current,
+    /** デバッグ用: AudioContext の latency 情報 */
+    getDebugLatency: () => {
+      const ctx = contextRef.current
+      if (!ctx) return { outputLatency: 0, baseLatency: 0 }
+      return {
+        outputLatency: (ctx as unknown as { outputLatency?: number }).outputLatency ?? -1,
+        baseLatency: ctx.baseLatency ?? -1,
+      }
+    },
   }
 }
