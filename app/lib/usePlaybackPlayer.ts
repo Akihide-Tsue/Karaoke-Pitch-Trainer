@@ -4,7 +4,7 @@ import { loadAudioBuffer } from "~/lib/useAudioBufferLoader"
 /** 録音再生画面での伴奏音量（0–1）。PC */
 const PLAYBACK_ACCOMPANIMENT_GAIN_PC = 0.2
 /** モバイル（Android） */
-const PLAYBACK_ACCOMPANIMENT_GAIN_ANDROID = 0.05
+const PLAYBACK_ACCOMPANIMENT_GAIN_ANDROID = 0.08
 
 /** モバイル（iOS） */
 const PLAYBACK_ACCOMPANIMENT_GAIN_IOS = 0.12
