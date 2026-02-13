@@ -120,8 +120,11 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       // スピーカーから漏れた伴奏の誤検出を防ぐため RMS 閾値を高めに設定
       worker.postMessage({
         config: {
-          // YIN 自己相関の許容閾値（デフォルト 0.2）。大きいほど弱い信号でもピッチを検出する
-          yinThreshold: isMobile ? 0.35 : 0.2,
+          // YIN 自己相関の許容閾値（デフォルト 0.2）。大きいほど弱い信号でも検出する
+          yinThreshold: isIOS ? 0.4 : isMobile ? 0.5 : 0.2,
+          // 検出結果を採用する最低確率。低いほど不確実な検出も返す
+          // Android は信号が弱く probability が低くなりがちなため緩めに設定
+          probabilityThreshold: isIOS ? 0.3 : isMobile ? 0.15 : 0.3,
           rmsThreshold: isIOS
             ? RMS_THRESHOLD_IOS
             : isMobile

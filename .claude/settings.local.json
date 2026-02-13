@@ -38,7 +38,10 @@
       "mcp__serena__edit_memory",
       "Bash(git -C /Users/akihidetsue/work/pitch-poc diff --staged)",
       "Bash(git -C /Users/akihidetsue/work/pitch-poc branch:*)",
-      "Bash(pnpm --dir /Users/akihidetsue/work/pitch-poc run typecheck)"
+      "Bash(pnpm --dir /Users/akihidetsue/work/pitch-poc run typecheck)",
+      "mcp__serena__delete_memory",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm lint:fix:*)"
     ]
   }
 }
