@@ -29,23 +29,10 @@ export interface UsePitchDetectionOptions {
   onError?: (error: Error) => void
 }
 
-/** マイク入力パイプラインの推定レイテンシ (ms) を返す。
- *  AudioWorklet バッファ遅延 + AudioContext.inputLatency（利用可能な場合）。
- *  Android では inputLatency API が HAL 遅延を正しく報告しないため、
- *  practice.tsx 側で自動キャリブレーションにより残差を補正する。 */
-const estimateInputLatencyMs = (ctx: AudioContext, bufferSize: number): number => {
-  const bufferDelayMs = (bufferSize / ctx.sampleRate) * 1000
-  const inputLatency = (ctx as unknown as { inputLatency?: number }).inputLatency ?? 0
-  const baseLatency = inputLatency > 0 ? 0 : (ctx.baseLatency ?? 0)
-  return bufferDelayMs + (inputLatency + baseLatency) * 1000
-}
-
 export interface UsePitchDetectionResult {
   requestPermission: () => Promise<void>
   start: () => Promise<number>
   stop: () => Promise<Blob | null>
-  /** 推定入力レイテンシ (ms)。デバッグ用 */
-  getInputLatencyMs: () => number
 }
 
 /** start() で確保したリソースをまとめて保持する */
@@ -65,7 +52,6 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   const { onPitch, getPlaybackPositionMs, onError } = options
   const sessionRef = useRef<Session | null>(null)
   const latestMidiRef = useRef(0)
-  const inputLatencyMsRef = useRef(0)
   const chunksRef = useRef<Blob[]>([])
 
   const requestPermission = useCallback(async () => {
@@ -158,15 +144,10 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       source.connect(recGain)
       recGain.connect(recDest)
 
-      // マイク入力パイプラインの推定レイテンシを算出し、timeMs から差し引く。
-      // これにより「今の再生位置」ではなく「この midi 値が実際に集音された時点の再生位置」で記録される。
-      const BUFFER_SIZE = 2048
-      const inputLatencyCompensationMs = estimateInputLatencyMs(context, BUFFER_SIZE)
-      inputLatencyMsRef.current = inputLatencyCompensationMs
-
+      // timeMs はそのまま渡す。レイテンシ補正は practice.tsx の自動キャリブレーションで行う。
       const intervalId = setInterval(() => {
         const timeMs = getPlaybackPositionMs?.() ?? 0
-        onPitch(latestMidiRef.current, Math.max(0, timeMs - inputLatencyCompensationMs))
+        onPitch(latestMidiRef.current, timeMs)
       }, PITCH_INTERVAL_MS)
 
       // MediaRecorder
@@ -238,10 +219,5 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     return blob
   }, [])
 
-  return {
-    requestPermission,
-    start,
-    stop,
-    getInputLatencyMs: () => inputLatencyMsRef.current,
-  }
+  return { requestPermission, start, stop }
 }
