@@ -1,6 +1,6 @@
 /**
  * ピッチ検出を Web Worker 内で実行（メインスレッドのブロックを避ける）
- * メインから samples + sampleRate を受け取り、YIN で周波数 → MIDI を返す
+ * メインから samples + sampleRate を受け取り、MacLeod (MPM) で周波数 → MIDI を返す
  */
 import * as Pitchfinder from "pitchfinder"
 
@@ -9,11 +9,14 @@ const frequencyToMidi = (frequency: number): number => {
   return 12 * Math.log2(frequency / 440) + 69
 }
 
-let detectPitch: ((samples: Float32Array) => number | null) | null = null
-/** YIN threshold。モバイルでは弱い信号を拾うため高めに設定する */
-let yinThreshold = 0.2
-/** 検出結果を採用する最低確率。Android は信号が弱いため緩めに設定する */
-let probabilityThreshold = 0.3
+let detectPitch:
+  | ((buf: Float32Array) => { freq: number; probability: number })
+  | null = null
+/** MacLeod cutoff: 最高ピークの何%以上のピークを採用するか（0〜1）。
+ *  低いほど弱い信号でもピッチを検出する */
+let cutoff = 0.97
+/** probability がこの値未満の検出結果は信頼度不足として棄却する */
+let minProbability = 0.3
 /** RMS が閾値未満なら無音とみなしピッチ 0 を返す。伴奏のマイク混入によるピッチ誤検出を防ぐ */
 let rmsThreshold = 0.01
 
@@ -26,7 +29,7 @@ const computeRms = (samples: Float32Array): number => {
   return Math.sqrt(sum / samples.length)
 }
 
-/** GainNode で増幅した信号が ±1.0 を超えている場合、正規化して YIN の精度を保つ */
+/** GainNode で増幅した信号が ±1.0 を超えている場合、正規化してピッチ検出の精度を保つ */
 const normalizeIfClipped = (samples: Float32Array): Float32Array => {
   let peak = 0
   for (let i = 0; i < samples.length; i++) {
@@ -72,8 +75,8 @@ self.onmessage = (
     | { samples: Float32Array; sampleRate: number }
     | {
         config: {
-          yinThreshold?: number
-          probabilityThreshold?: number
+          cutoff?: number
+          minProbability?: number
           rmsThreshold?: number
         }
       }
@@ -82,10 +85,9 @@ self.onmessage = (
   try {
     // 設定メッセージ: パラメータを更新
     if ("config" in e.data) {
-      if (e.data.config.yinThreshold != null)
-        yinThreshold = e.data.config.yinThreshold
-      if (e.data.config.probabilityThreshold != null)
-        probabilityThreshold = e.data.config.probabilityThreshold
+      if (e.data.config.cutoff != null) cutoff = e.data.config.cutoff
+      if (e.data.config.minProbability != null)
+        minProbability = e.data.config.minProbability
       if (e.data.config.rmsThreshold != null)
         rmsThreshold = e.data.config.rmsThreshold
       detectPitch = null // 次回の検出で再初期化
@@ -100,19 +102,20 @@ self.onmessage = (
     }
 
     if (!detectPitch) {
-      detectPitch = Pitchfinder.YIN({
+      // MacLeod (MPM): YIN より基本周波数と倍音の区別に優れ、オクターブ誤検出が少ない
+      detectPitch = Pitchfinder.Macleod({
         sampleRate,
-        // YIN 自己相関の許容閾値（0〜1）。大きいほど弱い信号でも検出する
-        threshold: yinThreshold,
-        // 検出結果を採用する最低確率（0〜1）。低いほど不確実な検出も返す
-        // Android は信号が弱く probability が低いため 0.15、iOS/PC は 0.3
-        probabilityThreshold,
-      })
+        // 最高ピークの何%以上のピークを採用するか（0〜1）。低いほど弱い信号でも検出する
+        cutoff,
+      }) as unknown as typeof detectPitch
     }
-    // GainNode による増幅でクリップした信号を正規化してから YIN に渡す
+    // GainNode による増幅でクリップした信号を正規化してからピッチ検出に渡す
     const normalizedSamples = normalizeIfClipped(samples)
-    const freq = detectPitch(normalizedSamples)
-    let midi = freq ? Math.round(frequencyToMidi(freq)) : 0
+    const result = detectPitch!(normalizedSamples)
+    let midi = 0
+    if (result && result.freq > 0 && result.probability >= minProbability) {
+      midi = Math.round(frequencyToMidi(result.freq))
+    }
     // 歌声の範囲外（C2=36未満 or C6=84超）はオクターブ誤検出とみなし無視
     if (midi > 0 && (midi < 36 || midi > 84)) midi = 0
     // メディアンフィルタで単発のオクターブ跳びを除去
