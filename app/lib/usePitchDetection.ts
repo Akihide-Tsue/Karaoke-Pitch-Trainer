@@ -16,10 +16,6 @@ const INPUT_GAIN_IOS = 30
 const INPUT_GAIN_ANDROID = 25
 const INPUT_GAIN_DESKTOP = 3
 
-/** Android のピッチ検出パイプライン遅延補正（ms）。
- *  AudioWorklet バッファ蓄積 + Worker 処理で生じる固有遅延を補正する */
-const PITCH_LATENCY_ANDROID_MS = 80 // 現在の線に対しての遅延調整
-
 /** 録音パスの増幅度。ピッチ検出用ほど大きくせず、声を聴き取れる程度にブーストする。
  *  デスクトップは echoCancellation=false で伴奏がマイクに漏れるため、
  *  録音パスでは増幅せず再生時にブーストする（漏れ伴奏の増幅を避ける） */
@@ -141,12 +137,18 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       }
 
       // 録音用: 適度にブーストして録音（再生時のゲインは 1.0）
-      const recGain = context.createGain()
-      recGain.gain.value = isIOS
+      // 初期化過渡ノイズを避けるため 0 から短時間でフェードインする（録音再生の頭のザラッとした音を消す）
+      const recGainValue = isIOS
         ? REC_GAIN_IOS
         : isMobile
           ? REC_GAIN_ANDROID
           : REC_GAIN_DESKTOP
+      const recGain = context.createGain()
+      recGain.gain.value = 0
+      recGain.gain.linearRampToValueAtTime(
+        recGainValue,
+        context.currentTime + 0.05,
+      )
 
       // 信号経路:
       //   source → gain(20x) → workletNode → dummyDest (ピッチ検出、スピーカーには出さない)
@@ -159,11 +161,8 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       source.connect(recGain)
       recGain.connect(recDest)
 
-      const isAndroid = /Android/i.test(navigator.userAgent)
-      const latencyCompensationMs = isAndroid ? PITCH_LATENCY_ANDROID_MS : 0
-
       const intervalId = setInterval(() => {
-        const timeMs = (getPlaybackPositionMs?.() ?? 0) - latencyCompensationMs
+        const timeMs = getPlaybackPositionMs?.() ?? 0
         onPitch(latestMidiRef.current, timeMs)
       }, PITCH_INTERVAL_MS)
 
