@@ -218,25 +218,24 @@ const Practice = () => {
       if (pitchBufferRef.current.length > 0) {
         const batch = pitchBufferRef.current
         pitchBufferRef.current = []
+        // キャリブレーション確定済みなら offset を適用、未確定なら 0
         const offset = calibrationOffsetRef.current
         for (let i = 0; i < batch.length; i++) {
           batch[i].timeMs -= offset
           livePitchRef.current.push(batch[i])
         }
         // キャリブレーション: 最初の CALIBRATION_COUNT 個の有声ピッチで
-        // nowMs - timeMs の中央値を計算し、以降の timeMs 補正に使う
-        if (!calibrationDoneRef.current) {
-          const lastEntry = livePitchRef.current[livePitchRef.current.length - 1]
-          if (lastEntry && lastEntry.midi > 0 && nowMs > 1000) {
-            calibrationSamplesRef.current.push(nowMs - lastEntry.timeMs)
+        // nowMs - timeMs の中央値を計算し、以降の timeMs 補正に使う。
+        // 確定前のエントリは補正なしだが、最初の数秒のため実用上問題ない。
+        if (!calibrationDoneRef.current && nowMs > 1000) {
+          for (let i = 0; i < batch.length; i++) {
+            if (batch[i].midi > 0) {
+              calibrationSamplesRef.current.push(nowMs - batch[i].timeMs)
+            }
           }
           if (calibrationSamplesRef.current.length >= CALIBRATION_COUNT) {
             const sorted = calibrationSamplesRef.current.slice().sort((a, b) => a - b)
             const median = sorted[Math.floor(sorted.length / 2)]
-            // 既存の全エントリを遡って補正
-            for (const entry of livePitchRef.current) {
-              entry.timeMs -= median
-            }
             calibrationOffsetRef.current = median
             calibrationDoneRef.current = true
           }
