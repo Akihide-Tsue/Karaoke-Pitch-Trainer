@@ -158,20 +158,26 @@ export const PitchBar = ({
       barPositions.push(barOffsetMs + i * msPerBar)
     }
 
-    const visiblePitches = pitchData.filter(
-      (e) => e.timeMs >= windowStartMs && e.timeMs < windowEndMs,
-    )
+    // pitchData は timeMs 昇順。二分探索で表示範囲の開始位置を特定し、
+    // filter の O(n) スキャンを O(log n + visible) に削減する
+    let lo = 0
+    let hi = pitchData.length
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1
+      if (pitchData[mid].timeMs < windowStartMs) lo = mid + 1
+      else hi = mid
+    }
     const singingBars: ReactElement[] = []
-    for (let i = 0; i < visiblePitches.length; i++) {
-      const { timeMs, midi } = visiblePitches[i]
+    for (let i = lo; i < pitchData.length; i++) {
+      const { timeMs, midi } = pitchData[i]
+      if (timeMs >= windowEndMs) break
       if (midi <= 0 || midi < minPitchDisplay || midi > maxPitchDisplay)
         continue
       const x = scaleX(timeMs)
       const target = getTargetPitchAtTime(notes, timeMs)
       const match = target != null && Math.abs(midi - target) <= 1
       const fill = match ? PITCH_NOTE_MATCH : PITCH_NOTE_MISMATCH
-      const nextTimeMs =
-        visiblePitches[i + 1]?.timeMs ?? timeMs + PITCH_INTERVAL_MS
+      const nextTimeMs = pitchData[i + 1]?.timeMs ?? timeMs + PITCH_INTERVAL_MS
       const barW = Math.max(2, scaleX(nextTimeMs) - x)
       if (x + barW < 0 || x > w) continue
       singingBars.push(
