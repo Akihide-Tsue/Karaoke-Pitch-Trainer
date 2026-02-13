@@ -50,7 +50,10 @@
       "Bash(npx biome format:*)",
       "Bash(gh pr view:*)",
       "Bash(git status:*)",
-      "Bash(npx vite build:*)"
+      "Bash(npx vite build:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh api:*)",
+      "Bash(pnpm build:*)"
     ]
   }
 }

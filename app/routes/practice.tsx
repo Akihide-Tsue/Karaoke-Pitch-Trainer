@@ -478,9 +478,9 @@ const Practice = () => {
                 const live = livePitchRef.current
                 const lastPitch = live[live.length - 1]
                 const nowMs = playback.getPlaybackPositionMs()
-                const deltaState = lastPitch ? smoothPositionMs - lastPitch.timeMs : 0
                 const deltaLive = lastPitch ? nowMs - lastPitch.timeMs : 0
-                return `dS:${Math.round(deltaState)} dL:${Math.round(deltaLive)} n:${live.length} sm:${Math.round(smoothPositionMs)} now:${Math.round(nowMs)}`
+                const comp = Math.round(pitchDetection.getInputLatencyMs())
+                return `dL:${Math.round(deltaLive)} comp:${comp} n:${live.length}`
               })()}
             </Typography>
           )}
