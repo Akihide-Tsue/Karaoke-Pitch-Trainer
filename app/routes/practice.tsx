@@ -181,7 +181,7 @@ const Practice = () => {
   }, [isPracticing, positionMs])
 
   // 再生中は requestAnimationFrame で位置を毎フレーム更新し、PitchBar の位置線をスムーズに動かす
-  // pitchTick も同時に更新して、PitchBar が最新の livePitchRef を参照するようにする
+  // smoothPositionMs の更新で再レンダリングが走り、PitchBar が最新の livePitchRef を参照する
   useEffect(() => {
     if (!isPracticing) return
     let rafId: number

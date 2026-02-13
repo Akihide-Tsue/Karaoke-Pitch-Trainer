@@ -45,13 +45,11 @@ interface Session {
   workletNode: AudioWorkletNode
   worker: Worker
   recorder: MediaRecorder
-  intervalId: ReturnType<typeof setInterval>
 }
 
 export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   const { onPitch, getPlaybackPositionMs, onError } = options
   const sessionRef = useRef<Session | null>(null)
-  const latestMidiRef = useRef(0)
   const chunksRef = useRef<Blob[]>([])
 
   const requestPermission = useCallback(async () => {
@@ -72,7 +70,6 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
   }, [onError])
 
   const start = useCallback(async (): Promise<number> => {
-    latestMidiRef.current = 0
     try {
       const isMobile =
         /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
@@ -102,13 +99,13 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
         type: "module",
       })
       worker.onmessage = (
-        ev: MessageEvent<{ midi: number } | { error: string }>,
+        ev: MessageEvent<{ midi: number; timeMs: number } | { error: string }>,
       ) => {
         if ("error" in ev.data) {
           onError?.(new Error(ev.data.error))
           return
         }
-        latestMidiRef.current = ev.data.midi
+        onPitch(ev.data.midi, ev.data.timeMs)
       }
       worker.onerror = () => {
         onError?.(new Error("ピッチ検出 Worker でエラーが発生しました"))
@@ -126,12 +123,19 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
 
       const sampleRate = context.sampleRate
       const workletNode = new AudioWorkletNode(context, "pitch-processor")
+      // Android はメインスレッドの応答遅延により port.onmessage の発火が遅れ、
+      // getPlaybackPositionMs() が実際の歌唱タイミングより先に進んだ値を返す。
+      // AudioWorklet のバッファリング時間（2048/sampleRate）分を差し引いて補正する。
+      // iOS/Mac ではメインスレッドが高速なため補正不要。
+      const isAndroid = /Android/i.test(navigator.userAgent)
+      const bufferLatencyMs = isAndroid ? (2048 / sampleRate) * 1000 : 0
       workletNode.port.onmessage = (
         ev: MessageEvent<{ samples: Float32Array }>,
       ) => {
         if (!sessionRef.current) return
         const { samples } = ev.data
-        sessionRef.current.worker.postMessage({ samples, sampleRate }, [
+        const timeMs = (getPlaybackPositionMs?.() ?? 0) - bufferLatencyMs
+        sessionRef.current.worker.postMessage({ samples, sampleRate, timeMs }, [
           samples.buffer,
         ])
       }
@@ -161,11 +165,6 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       source.connect(recGain)
       recGain.connect(recDest)
 
-      const intervalId = setInterval(() => {
-        const timeMs = getPlaybackPositionMs?.() ?? 0
-        onPitch(latestMidiRef.current, timeMs)
-      }, PITCH_INTERVAL_MS)
-
       // MediaRecorder
       chunksRef.current = []
       const recMimeType = [
@@ -193,7 +192,6 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
         workletNode,
         worker,
         recorder,
-        intervalId,
       }
       return performance.now()
     } catch (err) {
@@ -206,8 +204,6 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
     const session = sessionRef.current
     if (!session) return null
     sessionRef.current = null
-
-    clearInterval(session.intervalId)
 
     // 録音を停止して Blob を取得
     let blob: Blob | null = null
