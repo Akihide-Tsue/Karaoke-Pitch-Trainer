@@ -20,8 +20,16 @@ const getAccompanimentGain = () => {
     : PLAYBACK_ACCOMPANIMENT_GAIN_IOS
 }
 
-/** 再生画面での録音（歌声）音量。録音時に適度に増幅済みのため、再生時は等倍 */
-const PLAYBACK_RECORDING_GAIN = 1.0
+/** 再生画面での録音（歌声）音量。
+ *  モバイルは録音パスで増幅済み(3-5x)のため等倍。
+ *  デスクトップは伴奏漏れ防止のため録音パス等倍で、再生時にブーストする */
+const PLAYBACK_RECORDING_GAIN_PC = 3.0
+const PLAYBACK_RECORDING_GAIN_MOBILE = 1.0
+
+const getRecordingGain = () => {
+  if (!isMobile()) return PLAYBACK_RECORDING_GAIN_PC
+  return PLAYBACK_RECORDING_GAIN_MOBILE
+}
 
 export interface UsePlaybackPlayerOptions {
   instUrl: string
@@ -113,7 +121,7 @@ export const usePlaybackPlayer = (
     vocalGainRef.current = vg
 
     const rg = ctx.createGain()
-    rg.gain.value = PLAYBACK_RECORDING_GAIN
+    rg.gain.value = getRecordingGain()
     rg.connect(ctx.destination)
     recGainRef.current = rg
 
@@ -211,7 +219,7 @@ export const usePlaybackPlayer = (
       const v = Math.max(0, Math.min(1, volume)) * getAccompanimentGain()
       ig.gain.value = v
       vg.gain.value = v
-      rg.gain.value = PLAYBACK_RECORDING_GAIN
+      rg.gain.value = getRecordingGain()
 
       stopSources()
       startedAtRef.current = ctx.currentTime
@@ -301,8 +309,7 @@ export const usePlaybackPlayer = (
     const v = Math.max(0, Math.min(1, volume)) * getAccompanimentGain()
     if (instGainRef.current) instGainRef.current.gain.value = v
     if (vocalGainRef.current) vocalGainRef.current.gain.value = v
-    if (recGainRef.current)
-      recGainRef.current.gain.value = PLAYBACK_RECORDING_GAIN
+    if (recGainRef.current) recGainRef.current.gain.value = getRecordingGain()
   }, [volume])
 
   // --- クリーンアップ ---

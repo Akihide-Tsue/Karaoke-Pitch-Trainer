@@ -17,10 +17,11 @@ const INPUT_GAIN_ANDROID = 20
 const INPUT_GAIN_DESKTOP = 3
 
 /** 録音パスの増幅度。ピッチ検出用ほど大きくせず、声を聴き取れる程度にブーストする。
- *  再生時のゲインは 1.0 にし、ここで録音品質を決める */
+ *  デスクトップは echoCancellation=false で伴奏がマイクに漏れるため、
+ *  録音パスでは増幅せず再生時にブーストする（漏れ伴奏の増幅を避ける） */
 const REC_GAIN_IOS = 3
 const REC_GAIN_ANDROID = 5
-const REC_GAIN_DESKTOP = 3
+const REC_GAIN_DESKTOP = 1
 
 export interface UsePitchDetectionOptions {
   onPitch: (midi: number, timeMs: number) => void
