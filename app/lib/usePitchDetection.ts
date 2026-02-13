@@ -8,8 +8,8 @@
 import { useCallback, useRef } from "react"
 import processorUrl from "./pitch-processor.ts?worker&url"
 
-/** ピッチ検出のサンプル間隔（ms）。20ms で 50fps */
-export const PITCH_INTERVAL_MS = 20
+/** ピッチ検出のおおよそのサンプル間隔（ms）。AudioWorklet のバッファ 2048 samples / 48kHz ≈ 42ms */
+export const PITCH_INTERVAL_MS = 42
 
 /** マイク入力の増幅度（ピッチ検出用） */
 const INPUT_GAIN_IOS = 30
@@ -123,18 +123,24 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
 
       const sampleRate = context.sampleRate
       const workletNode = new AudioWorkletNode(context, "pitch-processor")
-      // Android はメインスレッドの応答遅延により port.onmessage の発火が遅れ、
-      // getPlaybackPositionMs() が実際の歌唱タイミングより先に進んだ値を返す。
-      // AudioWorklet のバッファリング時間（2048/sampleRate）分を差し引いて補正する。
-      // iOS/Mac ではメインスレッドが高速なため補正不要。
-      const isAndroid = /Android/i.test(navigator.userAgent)
-      const bufferLatencyMs = isAndroid ? (2048 / sampleRate) * 1000 : 0
+      // AudioWorklet はリアルタイムスレッドで動くため currentTime が正確。
+      // メインスレッドの port.onmessage は遅延するため、context.currentTime との差分で
+      // メインスレッド遅延を測定し、getPlaybackPositionMs() から差し引いて補正する。
       workletNode.port.onmessage = (
-        ev: MessageEvent<{ samples: Float32Array }>,
+        ev: MessageEvent<{
+          samples: Float32Array
+          currentTime: number
+        }>,
       ) => {
         if (!sessionRef.current) return
-        const { samples } = ev.data
-        const timeMs = (getPlaybackPositionMs?.() ?? 0) - bufferLatencyMs
+        const { samples, currentTime: workletTime } = ev.data
+        // workletTime: バッファが溜まった時刻（AudioWorklet の正確な時計）
+        // context.currentTime: メインスレッドで受け取った時点の時刻（遅延している）
+        // この差分がメインスレッドの転送遅延
+        const delayMs =
+          (context.currentTime - workletTime) * 1000 +
+          (2048 / sampleRate) * 1000
+        const timeMs = (getPlaybackPositionMs?.() ?? 0) - delayMs
         sessionRef.current.worker.postMessage({ samples, sampleRate, timeMs }, [
           samples.buffer,
         ])

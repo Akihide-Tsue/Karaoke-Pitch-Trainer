@@ -6,6 +6,7 @@
 
 // AudioWorkletGlobalScope の型定義（worklet 内では DOM 型が使えないため）
 declare const sampleRate: number
+declare const currentTime: number
 declare class AudioWorkletProcessor {
   readonly port: MessagePort
   constructor()
@@ -36,7 +37,9 @@ class PitchProcessor extends AudioWorkletProcessor {
 
       if (this.offset >= BUFFER_SIZE) {
         const copy = new Float32Array(this.buffer)
-        this.port.postMessage({ samples: copy, sampleRate }, [copy.buffer])
+        this.port.postMessage({ samples: copy, sampleRate, currentTime }, [
+          copy.buffer,
+        ])
         this.offset = 0
       }
     }
