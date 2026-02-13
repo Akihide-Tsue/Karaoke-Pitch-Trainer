@@ -41,7 +41,12 @@
       "Bash(pnpm --dir /Users/akihidetsue/work/pitch-poc run typecheck)",
       "mcp__serena__delete_memory",
       "Bash(pnpm typecheck:*)",
-      "Bash(pnpm lint:fix:*)"
+      "Bash(pnpm lint:fix:*)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "Bash(pnpm remove:*)",
+      "Bash(pnpm add:*)"
     ]
   }
 }

@@ -30,7 +30,7 @@ source → GainNode → AudioWorkletNode (ピッチ検出) → dummyDest
 - **INPUT_GAIN_ANDROID = 20**: DSP全無効で生信号が弱いためさらに高く
 - **INPUT_GAIN_DESKTOP = 3**: 近距離マイクのため低め
 - DynamicsCompressorNode（threshold=-6dB, ratio=4:1）で 0dBFS超えを防止
-- Worker側で `normalizeIfClipped()` を実行し、クリップした信号を正規化してからYINに渡す
+- Worker側で `normalizeIfClipped()` を実行し、クリップした信号を正規化してからピッチ検出に渡す
 
 ### 過去に試してダメだったGain値
 
@@ -38,25 +38,20 @@ source → GainNode → AudioWorkletNode (ピッチ検出) → dummyDest
 - `INPUT_GAIN_MOBILE = 10`: Android で感度不足
 - `INPUT_GAIN_MOBILE = 15`: Android でまだ感度不足 → iOS/Android分離が必要だった
 
-## RMS音量ゲート閾値
-
-- **RMS_THRESHOLD_IOS = 0.02**: echoCancellationが伴奏を抑制するため高めでOK
-- **RMS_THRESHOLD_ANDROID = 0.008**: DSP全無効で信号が弱いため低めに設定
-- **RMS_THRESHOLD_DESKTOP = 0.01**
-
-### 過去に試してダメだった閾値
-
-- `RMS_THRESHOLD_MOBILE = 0.03`: iOSでマイクに口が近くないと反応しない
-- `RMS_THRESHOLD_MOBILE = 0.02`: Androidでほとんどピッチ検出しない → iOS/Android分離が必要だった
-
-## ピッチ検出（YIN）のチューニング
+## ピッチ検出（pitchy / MPM）
 
 ### 現在の設定
 
-- アルゴリズム: MacLeod (MPM) — YIN より基本周波数と倍音の区別に優れ、オクターブ誤検出が少ない
-- `cutoff`: モバイル 0.9, デスクトップ 0.97（最高ピークの何%以上を採用するか。低いほど弱い信号でも検出）
-- `minProbability`: iOS 0.3, Android 0.1, デスクトップ 0.3（検出結果を採用する最低確率）
-  - Android は信号が弱く probability が低くなりがちなため緩めに設定
+- ライブラリ: **pitchy** v4.1.0（McLeod Pitch Method / MPM）
+- `PitchDetector.forFloat32Array(2048)` でインスタンス作成（pitch-processor の BUFFER_SIZE と一致）
+- `findPitch(samples, sampleRate)` → `[pitch_Hz, clarity]` を返す
+- `minClarity`（自前フィルタ）: iOS 0.7, Android 0.5, デスクトップ 0.7
+  - clarity がこの値未満の検出結果は棄却する
+  - Android は信号が弱く clarity が低くなりがちなため緩めに設定
+- `clarityThreshold`（pitchy内蔵）: iOS 0.9, Android 0.8, デスクトップ 0.9
+  - 内部の key maxima スキャンで使用される閾値
+- `minVolumeAbsolute`（pitchy内蔵RMSゲート）: iOS 0.02, Android 0.008, デスクトップ 0.01
+  - この RMS 未満は無音として `[0, 0]` を返す。伴奏のマイク混入によるピッチ誤検出を防ぐ
 - MIDI範囲制限: C2(36)〜C6(84)の範囲外はオクターブ誤検出とみなし無視
 
 ### メディアンフィルタ（オクターブ跳び除去）
@@ -65,12 +60,13 @@ source → GainNode → AudioWorkletNode (ピッチ検出) → dummyDest
 - 10半音以上の急激な変化はオクターブ誤検出とみなし無視
 - 有効値（>0）のみで中央値を取る（無音フレームは除外）
 
-### 過去に試してダメだった設定
+### 過去に試してダメだったアルゴリズム・設定
 
-- YIN アルゴリズム全般: 倍音を基本周波数と間違えやすくオクターブ誤検出が頻発 → MacLeod (MPM) に変更
-- YIN `probabilityThreshold: 0.1`: オクターブ上の倍音を誤検出しやすい
-- YIN `probabilityThreshold: 0.3`（Android）: 信号が弱く probability が低いためほとんど棄却され全くピッチ検出しない
-- YIN `yinThreshold: 0.35`（Android）: 感度不足。0.5 に上げて改善したが根本解決にならず
+- **pitchfinder MacLeod (MPM)**: `SMALL_CUTOFF = 0.5` がソースコード内にハードコードされており、NSDF ピークが 0.5 未満の弱い信号（Android/iOS）では全くピッチ検出しない。外部から設定不可のため使用不能
+- **pitchfinder YIN**: 倍音を基本周波数と間違えやすくオクターブ誤検出が頻発
+  - `probabilityThreshold: 0.1`: オクターブ上の倍音を誤検出しやすい
+  - `probabilityThreshold: 0.3`（Android）: 信号が弱く probability が低いためほとんど棄却され全くピッチ検出しない
+  - `yinThreshold: 0.35`（Android）: 感度不足。0.5 に上げて改善したが根本解決にならず
 - メディアンウィンドウ5: 描画遅延が体感できるレベル
 - normalizeIfClipped なし: GainNode増幅でクリップした信号でピッチ誤検出
 - Compressor後でピッチ検出: 倍音が強調されオクターブ上に誤検出
@@ -113,12 +109,15 @@ source → GainNode → AudioWorkletNode (ピッチ検出) → dummyDest
 ## Android固有の注意点まとめ
 
 - DSP全無効（echoCancellation含む）で問題ない
-- 信号が弱いため INPUT_GAIN=20, RMS_THRESHOLD=0.008 と積極的に拾う
-- iOS と同じ RMS_THRESHOLD だとほとんどピッチ検出しない
+- 信号が弱いため INPUT_GAIN=20, minVolumeAbsolute=0.008 と積極的に拾う
+- iOS と同じ minVolumeAbsolute だとほとんどピッチ検出しない
+- pitchy の clarityThreshold は 0.8 に下げる（デフォルト 0.9 だと弱い信号のピークを見逃す）
 
 ## 重要な教訓
 
 - **iOS と Android は必ず定数を分離する**。同じ `isMobile` で括ると片方で動作しない
 - **Compressor はピッチ検出経路に入れない**。倍音強調でオクターブ誤検出を招く
-- **GainNode 増幅後は normalizeIfClipped が必須**。クリップした波形はYINが正しく動かない
+- **GainNode 増幅後は normalizeIfClipped が必須**。クリップした波形はピッチ検出が正しく動かない
 - **メディアンフィルタのウィンドウは3が最適**。5だと遅延、1だとスパイク除去できない
+- **pitchfinder の MacLeod は使えない**。SMALL_CUTOFF=0.5 がハードコードで弱い信号を全て無視する
+- **pitchfinder の YIN は歌唱アプリに不向き**。倍音と基本周波数の区別が苦手でオクターブ誤検出が多い

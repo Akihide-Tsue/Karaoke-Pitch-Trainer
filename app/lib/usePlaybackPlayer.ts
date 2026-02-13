@@ -20,18 +20,15 @@ const getAccompanimentGain = () => {
     : PLAYBACK_ACCOMPANIMENT_GAIN_IOS
 }
 
-/** 再生画面での録音（歌声）音量（0–1）。PC */
-const PLAYBACK_RECORDING_GAIN_PC = 1.0
-/** モバイル（Android）音量（0–1） */
-const PLAYBACK_RECORDING_GAIN_ANDROID = 1.0
-/** iOS は echoCancellation で伴奏が抑制されるため、声が相対的に大きくなるため下げる */
-const PLAYBACK_RECORDING_GAIN_IOS = 0.6
+/** 再生画面での録音（歌声）音量。
+ *  モバイルは録音パスで増幅済み(3-5x)のため等倍。
+ *  デスクトップは伴奏漏れ防止のため録音パス等倍で、再生時にブーストする */
+const PLAYBACK_RECORDING_GAIN_PC = 3.0
+const PLAYBACK_RECORDING_GAIN_MOBILE = 1.0
 
 const getRecordingGain = () => {
   if (!isMobile()) return PLAYBACK_RECORDING_GAIN_PC
-  return /Android/i.test(navigator.userAgent)
-    ? PLAYBACK_RECORDING_GAIN_ANDROID
-    : PLAYBACK_RECORDING_GAIN_IOS
+  return PLAYBACK_RECORDING_GAIN_MOBILE
 }
 
 export interface UsePlaybackPlayerOptions {
@@ -307,7 +304,7 @@ export const usePlaybackPlayer = (
     })
   }, [getPositionMs, stopSources, playInternal])
 
-  // --- 音量（伴奏は控えめ・録音はブースト。モバイルは録音をさらにブースト） ---
+  // --- 音量（伴奏は控えめ・録音は等倍） ---
   useEffect(() => {
     const v = Math.max(0, Math.min(1, volume)) * getAccompanimentGain()
     if (instGainRef.current) instGainRef.current.gain.value = v

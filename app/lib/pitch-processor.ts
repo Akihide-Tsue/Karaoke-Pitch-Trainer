@@ -1,7 +1,7 @@
 /**
  * AudioWorkletProcessor: マイク PCM サンプルをバッファに蓄積し、
  * BUFFER_SIZE 分溜まったら port.postMessage で Web Worker（pitch.worker.ts）へ転送する。
- * YIN 等の重い計算は行わず、realtime スレッドの負荷を最小限に抑える。
+ * MPM 等の重い計算は行わず、realtime スレッドの負荷を最小限に抑える。
  */
 
 // AudioWorkletGlobalScope の型定義（worklet 内では DOM 型が使えないため）
