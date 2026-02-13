@@ -193,13 +193,15 @@ const Practice = () => {
 
   // 再生中は requestAnimationFrame で位置を毎フレーム更新し、PitchBar の位置線をスムーズに動かす
   // pitchBuffer → livePitchRef への push は O(1)。version カウンタで PitchBar の再描画をトリガーする。
+  const getPlaybackPositionMsFn = useRef(playback.getPlaybackPositionMs)
+  getPlaybackPositionMsFn.current = playback.getPlaybackPositionMs
   useEffect(() => {
     if (!isPracticing) return
     livePitchRef.current = []
     setPitchVersion(0)
     let rafId: number
     const tick = () => {
-      setSmoothPositionMs(playback.getPlaybackPositionMs())
+      setSmoothPositionMs(getPlaybackPositionMsFn.current())
       if (pitchBufferRef.current.length > 0) {
         const batch = pitchBufferRef.current
         pitchBufferRef.current = []
@@ -211,12 +213,17 @@ const Practice = () => {
       rafId = requestAnimationFrame(tick)
     }
     rafId = requestAnimationFrame(tick)
-    return () => {
-      cancelAnimationFrame(rafId)
-      // 練習終了時に Jotai atom へ確定値を書き戻す（スコア計算・保存用）
+    return () => cancelAnimationFrame(rafId)
+  }, [isPracticing])
+
+  // 練習終了時に livePitchRef の確定値を Jotai atom に書き戻す（スコア計算・保存用）
+  const prevIsPracticingRef = useRef(false)
+  useEffect(() => {
+    if (prevIsPracticingRef.current && !isPracticing) {
       setPitchData(livePitchRef.current.slice())
     }
-  }, [isPracticing, playback, setPitchData])
+    prevIsPracticingRef.current = isPracticing
+  }, [isPracticing, setPitchData])
 
   // キーボードの音量キー（VolumeUp/VolumeDown/VolumeMute）でアプリ音量とUIスライダーを連動
   useEffect(() => {
