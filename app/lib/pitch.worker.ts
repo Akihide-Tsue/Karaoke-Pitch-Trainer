@@ -40,8 +40,7 @@ const normalizeIfClipped = (samples: Float32Array): Float32Array => {
 
 self.onmessage = (
   e: MessageEvent<
-    | { config: { minClarity?: number } }
-    | { samples: Float32Array; sampleRate: number; timeMs: number }
+    { config: { minClarity?: number } } | { samples: Float32Array; sampleRate: number }
   >,
 ) => {
   try {
@@ -50,7 +49,7 @@ self.onmessage = (
       return
     }
 
-    const { samples, sampleRate, timeMs } = e.data
+    const { samples, sampleRate } = e.data
     const normalizedSamples = normalizeIfClipped(samples)
     const [pitch, clarity] = detector.findPitch(normalizedSamples, sampleRate)
 
@@ -60,7 +59,7 @@ self.onmessage = (
     }
     // 歌声の範囲外（C2=36未満 or C6=84超）は誤検出とみなし無視
     if (midi > 0 && (midi < 36 || midi > 84)) midi = 0
-    self.postMessage({ midi, timeMs })
+    self.postMessage({ midi })
   } catch (err) {
     self.postMessage({
       error: err instanceof Error ? err.message : String(err),
