@@ -63,9 +63,7 @@ export const PracticeControls = ({
         variant={disabled.isPracticing ? "outlined" : "contained"}
         onClick={disabled.isPracticing ? onStop : onResume}
         disabled={
-          disabled.isPracticing
-            ? false
-            : !disabled.hasMelodyData || disabled.positionMs <= 0
+          disabled.isPracticing ? false : !disabled.hasMelodyData || disabled.positionMs <= 0
         }
         sx={{ fontWeight: "bold" }}
       >
@@ -104,9 +102,7 @@ export const PracticeControls = ({
         {seekSeconds}秒送る
       </Button>
     </Box>
-    <Box
-      sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}
-    >
+    <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
       {/* <Box
         sx={{
           display: "flex",

@@ -268,10 +268,7 @@ const Practice = () => {
         if (cancelled) return
         setMelodyData({ ...data, lyrics })
       } catch (e) {
-        if (!cancelled)
-          setLoadError(
-            e instanceof Error ? e.message : "曲の読み込みに失敗しました",
-          )
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : "曲の読み込みに失敗しました")
       } finally {
         setLoading(false)
       }
@@ -281,11 +278,7 @@ const Practice = () => {
     }
   }, [melodyData, setMelodyData])
 
-  if (
-    loading ||
-    playback.bufferLoadStatus === "idle" ||
-    playback.bufferLoadStatus === "loading"
-  ) {
+  if (loading || playback.bufferLoadStatus === "idle" || playback.bufferLoadStatus === "loading") {
     return <PracticeLoadingScreen />
   }
 
@@ -444,10 +437,8 @@ const Practice = () => {
             </Typography>
           )}
           <Typography variant="caption" color="text.secondary">
-            {(
-              (isPracticing ? smoothPositionMs : viewPositionMs) / 1000
-            ).toFixed(1)}
-            s / {(totalDurationMs / 1000).toFixed(1)}s
+            {((isPracticing ? smoothPositionMs : viewPositionMs) / 1000).toFixed(1)}s /{" "}
+            {(totalDurationMs / 1000).toFixed(1)}s
           </Typography>
         </Box>
       </Paper>
@@ -456,21 +447,11 @@ const Practice = () => {
 
       <Box sx={{ mt: 2, display: "flex", justifyContent: "center", gap: 2 }}>
         {hasRecording && (
-          <Button
-            component={Link}
-            to="/playback"
-            variant="outlined"
-            sx={{ fontWeight: "bold" }}
-          >
+          <Button component={Link} to="/playback" variant="outlined" sx={{ fontWeight: "bold" }}>
             前回の録音を再生
           </Button>
         )}
-        <Button
-          component={Link}
-          to="/"
-          variant="text"
-          sx={{ fontWeight: "bold" }}
-        >
+        <Button component={Link} to="/" variant="text" sx={{ fontWeight: "bold" }}>
           ← ホームへ
         </Button>
       </Box>

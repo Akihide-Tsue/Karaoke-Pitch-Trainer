@@ -76,10 +76,7 @@ export const PitchBar = ({
       const msPerBar = bpm ? (60 * 1000 * 4) / bpm : 2000
       const msPerPx = (DRAG_SENSITIVITY_BARS * msPerBar) / rect.width
       const deltaMs = deltaX * msPerPx
-      const newMs = Math.max(
-        0,
-        Math.min(totalDurationMs, drag.startMs - deltaMs),
-      )
+      const newMs = Math.max(0, Math.min(totalDurationMs, drag.startMs - deltaMs))
       onViewDrag(newMs)
     },
     [onViewDrag, totalDurationMs, bpm],
@@ -90,8 +87,7 @@ export const PitchBar = ({
   }, [])
 
   const msPerBar = bpm ? (60 * 1000 * 4) / bpm : 2000
-  const positionTick =
-    Math.floor(positionMs / POSITION_TICK_MS) * POSITION_TICK_MS
+  const positionTick = Math.floor(positionMs / POSITION_TICK_MS) * POSITION_TICK_MS
 
   const svgData = useMemo(() => {
     if (!totalDurationMs || !notes.length) return null
@@ -99,23 +95,15 @@ export const PitchBar = ({
     const pos = positionTick
     const windowStartMs = Math.max(
       0,
-      Math.min(
-        pos - windowDurationMs * POSITION_RATIO,
-        totalDurationMs - windowDurationMs,
-      ),
+      Math.min(pos - windowDurationMs * POSITION_RATIO, totalDurationMs - windowDurationMs),
     )
-    const windowEndMs = Math.min(
-      totalDurationMs,
-      windowStartMs + windowDurationMs,
-    )
+    const windowEndMs = Math.min(totalDurationMs, windowStartMs + windowDurationMs)
     const actualWindowMs = windowEndMs - windowStartMs
     const PIXELS_PER_SEMITONE = 20
     const padding = 8
     const w = 1000
 
-    const visibleNotes = notes.filter(
-      (n) => n.endMs > windowStartMs && n.startMs < windowEndMs,
-    )
+    const visibleNotes = notes.filter((n) => n.endMs > windowStartMs && n.startMs < windowEndMs)
     const minPitch = Math.min(...notes.map((n) => n.pitch))
     const maxPitch = Math.max(...notes.map((n) => n.pitch))
     const MAX_OCTAVES = 4
@@ -145,10 +133,7 @@ export const PitchBar = ({
     const scaleY = (pitch: number) =>
       totalHeight - padding - (pitch - minPitchDisplay) * PIXELS_PER_SEMITONE
 
-    const linePitches = Array.from(
-      { length: pitchRange },
-      (_, i) => minPitchDisplay + i,
-    )
+    const linePitches = Array.from({ length: pitchRange }, (_, i) => minPitchDisplay + i)
     const lines = linePitches.map((pitch) => ({ y: scaleY(pitch), pitch }))
 
     const firstBar = Math.ceil((windowStartMs - barOffsetMs) / msPerBar)
@@ -171,8 +156,7 @@ export const PitchBar = ({
     for (let i = lo; i < pitchData.length; i++) {
       const { timeMs, midi } = pitchData[i]
       if (timeMs >= windowEndMs) break
-      if (midi <= 0 || midi < minPitchDisplay || midi > maxPitchDisplay)
-        continue
+      if (midi <= 0 || midi < minPitchDisplay || midi > maxPitchDisplay) continue
       const x = scaleX(timeMs)
       const target = getTargetPitchAtTime(notes, timeMs)
       const match = target != null && Math.abs(midi - target) <= 1

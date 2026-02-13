@@ -19,12 +19,7 @@ export const PlaybackControls = ({
   useGuideVocal: boolean
 }) => (
   <Box sx={{ mb: 2, display: "flex", gap: 1, flexWrap: "wrap" }}>
-    <Button
-      variant="outlined"
-      onClick={onStart}
-      disabled={isPlaying}
-      sx={{ fontWeight: "bold" }}
-    >
+    <Button variant="outlined" onClick={onStart} disabled={isPlaying} sx={{ fontWeight: "bold" }}>
       開始
     </Button>
     <Button

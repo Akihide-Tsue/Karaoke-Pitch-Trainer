@@ -75,10 +75,7 @@ const Playback = () => {
           recordingOffsetMs: rec.recordingOffsetMs ?? 0,
         })
       } catch (e) {
-        if (!cancelled)
-          setLoadError(
-            e instanceof Error ? e.message : "読み込みに失敗しました",
-          )
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : "読み込みに失敗しました")
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -153,22 +150,14 @@ const Playback = () => {
         <Typography variant="h6" sx={{ mb: 2 }}>
           まだ録音がありません
         </Typography>
-        <Button
-          component={Link}
-          to="/practice"
-          variant="contained"
-          sx={{ fontWeight: "bold" }}
-        >
+        <Button component={Link} to="/practice" variant="contained" sx={{ fontWeight: "bold" }}>
           練習する
         </Button>
       </Container>
     )
   }
 
-  if (
-    player.bufferLoadStatus === "idle" ||
-    player.bufferLoadStatus === "loading"
-  ) {
+  if (player.bufferLoadStatus === "idle" || player.bufferLoadStatus === "loading") {
     return <PracticeLoadingScreen message="音声を読み込み中…" />
   }
 
@@ -248,8 +237,7 @@ const Playback = () => {
           }}
         >
           <Typography variant="caption" color="text.secondary">
-            {(positionMs / 1000).toFixed(1)}s /{" "}
-            {(totalDurationMs / 1000).toFixed(1)}s
+            {(positionMs / 1000).toFixed(1)}s / {(totalDurationMs / 1000).toFixed(1)}s
           </Typography>
         </Box>
       </Paper>
@@ -257,12 +245,7 @@ const Playback = () => {
       <LyricsPanel lyricLines={lyricLines} onSeek={handleLyricSeek} />
 
       <Box sx={{ mt: 2, display: "flex", justifyContent: "center", gap: 2 }}>
-        <Button
-          component={Link}
-          to="/practice"
-          variant="contained"
-          sx={{ fontWeight: "bold" }}
-        >
+        <Button component={Link} to="/practice" variant="contained" sx={{ fontWeight: "bold" }}>
           練習画面に戻る
         </Button>
       </Box>

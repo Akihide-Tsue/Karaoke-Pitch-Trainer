@@ -53,12 +53,7 @@ export const ScoreResultDialog = ({
             <Typography variant="body1" align="center" gutterBottom>
               音程一致率
             </Typography>
-            <Typography
-              variant="h2"
-              align="center"
-              fontWeight="bold"
-              sx={{ my: 2 }}
-            >
+            <Typography variant="h2" align="center" fontWeight="bold" sx={{ my: 2 }}>
               {score}%
             </Typography>
           </>
@@ -79,28 +74,16 @@ export const ScoreResultDialog = ({
             >
               保存する
             </Button>
-            <Button
-              variant="outlined"
-              onClick={handleClose}
-              sx={{ fontWeight: "bold" }}
-            >
+            <Button variant="outlined" onClick={handleClose} sx={{ fontWeight: "bold" }}>
               保存しない
             </Button>
           </>
         ) : (
           <>
-            <Button
-              variant="contained"
-              onClick={handlePlayback}
-              sx={{ fontWeight: "bold" }}
-            >
+            <Button variant="contained" onClick={handlePlayback} sx={{ fontWeight: "bold" }}>
               今すぐ再生
             </Button>
-            <Button
-              variant="outlined"
-              onClick={handleClose}
-              sx={{ fontWeight: "bold" }}
-            >
+            <Button variant="outlined" onClick={handleClose} sx={{ fontWeight: "bold" }}>
               閉じる
             </Button>
           </>

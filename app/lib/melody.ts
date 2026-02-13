@@ -33,10 +33,7 @@ export interface MelodyData {
 /**
  * 指定時刻における正解ピッチ（MIDI）を取得
  */
-export const getTargetPitchAtTime = (
-  notes: MelodyNote[],
-  timeMs: number,
-): number | null => {
+export const getTargetPitchAtTime = (notes: MelodyNote[], timeMs: number): number | null => {
   const note = notes.find((n) => timeMs >= n.startMs && timeMs < n.endMs)
   return note ? note.pitch : null
 }

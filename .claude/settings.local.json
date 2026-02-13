@@ -46,7 +46,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:cdn.jsdelivr.net)",
       "Bash(pnpm remove:*)",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "Bash(npx biome format:*)"
     ]
   }
 }

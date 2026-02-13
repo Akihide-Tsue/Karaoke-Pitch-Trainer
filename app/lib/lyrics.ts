@@ -7,10 +7,7 @@ import type { LyricEntry } from "~/lib/melody"
  * @param positionMs - 再生位置（ミリ秒）
  * @returns 該当行のインデックス。歌詞がない場合は -1
  */
-export const getCurrentLyricIndex = (
-  lyrics: LyricEntry[],
-  positionMs: number,
-): number => {
+export const getCurrentLyricIndex = (lyrics: LyricEntry[], positionMs: number): number => {
   if (!lyrics.length) return -1
   let index = 0
   for (let i = 0; i < lyrics.length; i++) {
@@ -36,16 +33,11 @@ export const getLyricLines = (
   next: { text: string; timeMs: number } | null
 } => {
   const i = getCurrentLyricIndex(lyrics, positionMs)
-  if (i < 0 || !lyrics.length)
-    return { prev: null, current: { text: "", timeMs: 0 }, next: null }
+  if (i < 0 || !lyrics.length) return { prev: null, current: { text: "", timeMs: 0 }, next: null }
   return {
-    prev:
-      i > 0 ? { text: lyrics[i - 1].text, timeMs: lyrics[i - 1].timeMs } : null,
+    prev: i > 0 ? { text: lyrics[i - 1].text, timeMs: lyrics[i - 1].timeMs } : null,
     current: { text: lyrics[i].text, timeMs: lyrics[i].timeMs },
-    next:
-      i < lyrics.length - 1
-        ? { text: lyrics[i + 1].text, timeMs: lyrics[i + 1].timeMs }
-        : null,
+    next: i < lyrics.length - 1 ? { text: lyrics[i + 1].text, timeMs: lyrics[i + 1].timeMs } : null,
   }
 }
 

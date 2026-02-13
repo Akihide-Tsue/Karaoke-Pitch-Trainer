@@ -46,8 +46,7 @@ self.onmessage = (
 ) => {
   try {
     if ("config" in e.data) {
-      if (e.data.config.minClarity != null)
-        minClarity = e.data.config.minClarity
+      if (e.data.config.minClarity != null) minClarity = e.data.config.minClarity
       return
     }
 

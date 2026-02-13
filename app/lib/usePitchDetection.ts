@@ -115,11 +115,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
 
       // ピッチ検出用: GainNode で増幅（録音には影響しない）
       const gain = context.createGain()
-      gain.gain.value = isIOS
-        ? INPUT_GAIN_IOS
-        : isMobile
-          ? INPUT_GAIN_ANDROID
-          : INPUT_GAIN_DESKTOP
+      gain.gain.value = isIOS ? INPUT_GAIN_IOS : isMobile ? INPUT_GAIN_ANDROID : INPUT_GAIN_DESKTOP
 
       const sampleRate = context.sampleRate
       const workletNode = new AudioWorkletNode(context, "pitch-processor")
@@ -137,28 +133,17 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
         // workletTime: バッファが溜まった時刻（AudioWorklet の正確な時計）
         // context.currentTime: メインスレッドで受け取った時点の時刻（遅延している）
         // この差分がメインスレッドの転送遅延
-        const delayMs =
-          (context.currentTime - workletTime) * 1000 +
-          (2048 / sampleRate) * 1000
+        const delayMs = (context.currentTime - workletTime) * 1000 + (2048 / sampleRate) * 1000
         const timeMs = (getPlaybackPositionMs?.() ?? 0) - delayMs
-        sessionRef.current.worker.postMessage({ samples, sampleRate, timeMs }, [
-          samples.buffer,
-        ])
+        sessionRef.current.worker.postMessage({ samples, sampleRate, timeMs }, [samples.buffer])
       }
 
       // 録音用: 適度にブーストして録音（再生時のゲインは 1.0）
       // 初期化過渡ノイズを避けるため 0 から短時間でフェードインする（録音再生の頭のザラッとした音を消す）
-      const recGainValue = isIOS
-        ? REC_GAIN_IOS
-        : isMobile
-          ? REC_GAIN_ANDROID
-          : REC_GAIN_DESKTOP
+      const recGainValue = isIOS ? REC_GAIN_IOS : isMobile ? REC_GAIN_ANDROID : REC_GAIN_DESKTOP
       const recGain = context.createGain()
       recGain.gain.value = 0
-      recGain.gain.linearRampToValueAtTime(
-        recGainValue,
-        context.currentTime + 0.05,
-      )
+      recGain.gain.linearRampToValueAtTime(recGainValue, context.currentTime + 0.05)
 
       // 信号経路:
       //   source → gain(20x) → workletNode → dummyDest (ピッチ検出、スピーカーには出さない)
@@ -218,9 +203,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       blob = await new Promise<Blob | null>((resolve) => {
         session.recorder.onstop = () => {
           resolve(
-            chunksRef.current.length > 0
-              ? new Blob(chunksRef.current, { type: mimeType })
-              : null,
+            chunksRef.current.length > 0 ? new Blob(chunksRef.current, { type: mimeType }) : null,
           )
         }
         session.recorder.stop()

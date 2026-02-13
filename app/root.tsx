@@ -1,13 +1,6 @@
 import CssBaseline from "@mui/material/CssBaseline"
 import { createTheme, ThemeProvider } from "@mui/material/styles"
-import {
-  isRouteErrorResponse,
-  Links,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-} from "react-router"
+import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router"
 import { WHITE } from "~/constants/colors"
 import type { Route } from "./+types/root"
 import "./app.css"
@@ -82,9 +75,7 @@ export const ErrorBoundary = ({ error }: Route.ErrorBoundaryProps) => {
   if (isRouteErrorResponse(error)) {
     message = error.status === 404 ? "404" : "Error"
     details =
-      error.status === 404
-        ? "The requested page could not be found."
-        : error.statusText || details
+      error.status === 404 ? "The requested page could not be found." : error.statusText || details
   } else if (import.meta.env.DEV && error && error instanceof Error) {
     details = error.message
     stack = error.stack

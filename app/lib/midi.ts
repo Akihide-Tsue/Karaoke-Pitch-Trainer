@@ -20,15 +20,9 @@ async function getMidiClass(): Promise<{
 }> {
   const mod = await import("@tonejs/midi")
   const raw =
-    (mod as { default?: { Midi?: unknown; fromUrl?: unknown }; Midi?: unknown })
-      .default ?? mod
-  const Midi =
-    (raw as { Midi?: { fromUrl?: unknown } }).Midi ??
-    (raw as { fromUrl?: unknown })
-  if (
-    typeof (Midi as { fromUrl?: (u: string) => Promise<unknown> })?.fromUrl !==
-    "function"
-  ) {
+    (mod as { default?: { Midi?: unknown; fromUrl?: unknown }; Midi?: unknown }).default ?? mod
+  const Midi = (raw as { Midi?: { fromUrl?: unknown } }).Midi ?? (raw as { fromUrl?: unknown })
+  if (typeof (Midi as { fromUrl?: (u: string) => Promise<unknown> })?.fromUrl !== "function") {
     throw new Error("MIDI ライブラリの読み込みに失敗しました")
   }
   return Midi as {
@@ -50,18 +44,13 @@ async function getMidiClass(): Promise<{
  * MIDI ファイルをパースし MelodyData に変換
  * plan.md 4.1: メロディトラックのノートのみ使用
  */
-export async function parseMidiToMelodyData(
-  url: string,
-  songId: string,
-): Promise<MelodyData> {
+export async function parseMidiToMelodyData(url: string, songId: string): Promise<MelodyData> {
   const Midi = await getMidiClass()
   const midi = await Midi.fromUrl(url)
 
   const track =
     midi.tracks.find((t: { name?: string }) =>
-      MELODY_TRACK_NAMES.some((name) =>
-        t.name?.toLowerCase().includes(name.toLowerCase()),
-      ),
+      MELODY_TRACK_NAMES.some((name) => t.name?.toLowerCase().includes(name.toLowerCase())),
     ) ?? midi.tracks[0]
 
   if (!track || !track.notes.length) {
@@ -85,11 +74,7 @@ export async function parseMidiToMelodyData(
   const bpm = midi.header?.tempos?.[0]?.bpm ?? undefined
   const keySig = midi.header?.keySignatures?.[0]
   const key =
-    keySig != null
-      ? keySig.scale === "minor"
-        ? `${keySig.key}m`
-        : keySig.key
-      : undefined
+    keySig != null ? (keySig.scale === "minor" ? `${keySig.key}m` : keySig.key) : undefined
 
   // 小節線の起点: 最初のノート位置を1小節の長さで割った余り
   let barOffsetMs: number | undefined

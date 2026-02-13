@@ -11,10 +11,7 @@ declare class AudioWorkletProcessor {
   readonly port: MessagePort
   constructor()
 }
-declare function registerProcessor(
-  name: string,
-  processorCtor: typeof AudioWorkletProcessor,
-): void
+declare function registerProcessor(name: string, processorCtor: typeof AudioWorkletProcessor): void
 
 /** バッファサイズ。小さいほど検出頻度が上がるが、低音の精度が下がる */
 const BUFFER_SIZE = 2048
@@ -37,9 +34,7 @@ class PitchProcessor extends AudioWorkletProcessor {
 
       if (this.offset >= BUFFER_SIZE) {
         const copy = new Float32Array(this.buffer)
-        this.port.postMessage({ samples: copy, sampleRate, currentTime }, [
-          copy.buffer,
-        ])
+        this.port.postMessage({ samples: copy, sampleRate, currentTime }, [copy.buffer])
         this.offset = 0
       }
     }

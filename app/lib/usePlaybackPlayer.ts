@@ -59,9 +59,7 @@ export interface UsePlaybackPlayerResult {
  * 録音再生用フック。
  * inst/vocal + 録音 Blob を同時再生する（マイク・ピッチ検出なし）。
  */
-export const usePlaybackPlayer = (
-  options: UsePlaybackPlayerOptions,
-): UsePlaybackPlayerResult => {
+export const usePlaybackPlayer = (options: UsePlaybackPlayerOptions): UsePlaybackPlayerResult => {
   const {
     instUrl,
     vocalUrl,
@@ -81,9 +79,9 @@ export const usePlaybackPlayer = (
   const vocalBufferRef = useRef<AudioBuffer | null>(null)
   const recBufferRef = useRef<AudioBuffer | null>(null)
 
-  const [bufferLoadStatus, setBufferLoadStatus] = useState<
-    "idle" | "loading" | "loaded" | "error"
-  >("idle")
+  const [bufferLoadStatus, setBufferLoadStatus] = useState<"idle" | "loading" | "loaded" | "error">(
+    "idle",
+  )
   const [bufferLoadError, setBufferLoadError] = useState<string | null>(null)
   const isLoadingRef = useRef(false)
   const loadingCancelledRef = useRef(false)
@@ -135,11 +133,7 @@ export const usePlaybackPlayer = (
       return ctx.decodeAudioData(arrayBuffer)
     }
 
-    Promise.all([
-      loadAudioBuffer(instUrl, ctx),
-      loadAudioBuffer(vocalUrl, ctx),
-      decodeRecording(),
-    ])
+    Promise.all([loadAudioBuffer(instUrl, ctx), loadAudioBuffer(vocalUrl, ctx), decodeRecording()])
       .then(([instBuf, vocalBuf, recBuf]) => {
         isLoadingRef.current = false
         if (loadingCancelledRef.current) return
@@ -170,18 +164,15 @@ export const usePlaybackPlayer = (
   }, [])
 
   // --- ヘルパー ---
-  const createAndPlay = useCallback(
-    (buffer: AudioBuffer, gain: GainNode, offset: number) => {
-      const ctx = contextRef.current
-      if (!ctx) throw new Error("AudioContext not initialized")
-      const src = ctx.createBufferSource()
-      src.buffer = buffer
-      src.connect(gain)
-      src.start(0, offset)
-      return src
-    },
-    [],
-  )
+  const createAndPlay = useCallback((buffer: AudioBuffer, gain: GainNode, offset: number) => {
+    const ctx = contextRef.current
+    if (!ctx) throw new Error("AudioContext not initialized")
+    const src = ctx.createBufferSource()
+    src.buffer = buffer
+    src.connect(gain)
+    src.start(0, offset)
+    return src
+  }, [])
 
   const stopSources = useCallback(() => {
     for (const ref of [instSourceRef, vocalSourceRef, recSourceRef]) {

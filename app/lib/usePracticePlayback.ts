@@ -84,9 +84,9 @@ export const usePracticePlayback = (
   // --- AudioBuffer のロード ---
   const instBufferRef = useRef<AudioBuffer | null>(null)
   const vocalBufferRef = useRef<AudioBuffer | null>(null)
-  const [bufferLoadStatus, setBufferLoadStatus] = useState<
-    "idle" | "loading" | "loaded" | "error"
-  >("idle")
+  const [bufferLoadStatus, setBufferLoadStatus] = useState<"idle" | "loading" | "loaded" | "error">(
+    "idle",
+  )
   const [bufferLoadError, setBufferLoadError] = useState<string | null>(null)
   const loadingCancelledRef = useRef(false)
   const isLoadingRef = useRef(false)
@@ -164,17 +164,11 @@ export const usePracticePlayback = (
   /** 録音開始(MediaRecorder.start)から伴奏再生開始までの時間差 (ms) */
   const recordingOffsetMsRef = useRef(0)
   // stopPlaybackInternal を ref 化して循環参照を回避
-  const stopPlaybackInternalRef = useRef<() => Promise<Blob | null>>(
-    async () => null,
-  )
+  const stopPlaybackInternalRef = useRef<() => Promise<Blob | null>>(async () => null)
 
   // --- ヘルパー: ソースノードを作成して再生 ---
   const createAndPlaySource = useCallback(
-    (
-      buffer: AudioBuffer,
-      gainNode: GainNode,
-      offset: number,
-    ): AudioBufferSourceNode => {
+    (buffer: AudioBuffer, gainNode: GainNode, offset: number): AudioBufferSourceNode => {
       const ctx = contextRef.current
       if (!ctx) throw new Error("AudioContext not initialized")
       const source = ctx.createBufferSource()
@@ -209,8 +203,7 @@ export const usePracticePlayback = (
     const elapsed = contextRef.current.currentTime - startedAtRef.current
     // ctx.currentTime はスピーカー出力前の時刻なので、出力バッファ遅延分だけ実際に聞こえる音より先行する。outputLatency を引いて補正する。
     const latency =
-      (contextRef.current as unknown as { outputLatency?: number })
-        .outputLatency ??
+      (contextRef.current as unknown as { outputLatency?: number }).outputLatency ??
       contextRef.current.baseLatency ??
       0
     return (offsetRef.current + elapsed - latency) * 1000
@@ -236,10 +229,7 @@ export const usePracticePlayback = (
 
   // --- onended ハンドラ用ヘルパー ---
   const makeOnEnded = useCallback(
-    (
-      sourceRef: React.RefObject<AudioBufferSourceNode | null>,
-      src: AudioBufferSourceNode,
-    ) => {
+    (sourceRef: React.RefObject<AudioBufferSourceNode | null>, src: AudioBufferSourceNode) => {
       return () => {
         if (playingRef.current && sourceRef.current === src) {
           stopPlaybackInternalRef.current()
@@ -262,13 +252,7 @@ export const usePracticePlayback = (
     setIsPracticing(false)
     onStopped?.(blob)
     return blob
-  }, [
-    pitchDetection,
-    setIsPracticing,
-    stopSources,
-    stopPositionUpdater,
-    onStopped,
-  ])
+  }, [pitchDetection, setIsPracticing, stopSources, stopPositionUpdater, onStopped])
 
   // ref を常に最新に保つ
   stopPlaybackInternalRef.current = stopPlaybackInternal
@@ -434,8 +418,7 @@ export const usePracticePlayback = (
       const vocalBuf = vocalBufferRef.current
       const ig = instGainRef.current
       const vg = vocalGainRef.current
-      if (!ctx || !instBuf || !vocalBuf || !ig || !vg || totalDurationMs <= 0)
-        return
+      if (!ctx || !instBuf || !vocalBuf || !ig || !vg || totalDurationMs <= 0) return
 
       const sec = Math.max(0, Math.min(totalDurationMs / 1000, timeMs / 1000))
       const wasPlaying = playingRef.current
