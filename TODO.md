@@ -47,3 +47,9 @@
 - ルート構造: `/`（ホーム）, `/practice`（練習）, `/playback`（再生）
 - サンプル曲: songId = `brand-new-music`, unitId = `unit-1`
 - PoC に含めない: Capacitor、iOS Photos 保存、Vitest/Playwright
+
+# Androidの描画
+
+<https://github.com/Akihide-Tsue/Karaoke-Pitch-Trainer/pull/12>
+のPRマージ時点ではAndroidの音程バーの描画タイミングはずれていない。
+1コミットづつ後ろに確認していく！
