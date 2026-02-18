@@ -53,7 +53,8 @@
       "Bash(npx vite build:*)",
       "Bash(gh pr diff:*)",
       "Bash(gh api:*)",
-      "Bash(pnpm build:*)"
+      "Bash(pnpm build:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

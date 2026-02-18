@@ -89,6 +89,8 @@ const Practice = () => {
   const calibrationSamplesRef = useRef<number[]>([])
   const calibrationOffsetRef = useRef(0)
   const calibrationDoneRef = useRef(false)
+  // デバッグ: 最新バッチの生 timeMs と nowMs
+  const debugCalRef = useRef({ rawTimeMs: 0, nowMs: 0, batchLen: 0 })
 
   // playback.getPlaybackPositionMs を ref 経由で pitchDetection に渡す
   const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
@@ -220,10 +222,13 @@ const Practice = () => {
         pitchBufferRef.current = []
         // キャリブレーション確定済みなら offset を適用、未確定なら 0
         const offset = calibrationOffsetRef.current
+        // デバッグ: 最後のエントリの生 timeMs を記録（offset 適用前）
+        const lastRaw = batch[batch.length - 1].timeMs
         for (let i = 0; i < batch.length; i++) {
           batch[i].timeMs -= offset
           livePitchRef.current.push(batch[i])
         }
+        debugCalRef.current = { rawTimeMs: lastRaw, nowMs, batchLen: batch.length }
         // キャリブレーション: 最初の CALIBRATION_COUNT 個の有声ピッチで
         // nowMs - timeMs の中央値を計算し、以降の timeMs 補正に使う。
         // 確定前のエントリは補正なしだが、最初の数秒のため実用上問題ない。
@@ -507,13 +512,11 @@ const Practice = () => {
           {isPracticing && (
             <Typography variant="caption" color="error" sx={{ fontSize: "10px" }}>
               {(() => {
-                const live = livePitchRef.current
-                const lastPitch = live[live.length - 1]
-                const nowMs = playback.getPlaybackPositionMs()
-                const deltaLive = lastPitch ? nowMs - lastPitch.timeMs : 0
+                const d = debugCalRef.current
+                const rawGap = Math.round(d.nowMs - d.rawTimeMs)
                 const cal = Math.round(calibrationOffsetRef.current)
                 const done = calibrationDoneRef.current ? "Y" : "N"
-                return `dL:${Math.round(deltaLive)} cal:${cal}(${done}) n:${live.length}`
+                return `raw:${rawGap} cal:${cal}(${done}) b:${d.batchLen}`
               })()}
             </Typography>
           )}
