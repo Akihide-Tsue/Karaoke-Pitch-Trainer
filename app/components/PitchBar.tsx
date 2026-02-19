@@ -39,6 +39,7 @@ export const POSITION_RATIO = 0.5
 export const PitchBar = ({
   notes,
   pitchData,
+  pitchVersion,
   totalDurationMs,
   positionMs,
   bpm,
@@ -48,6 +49,8 @@ export const PitchBar = ({
 }: {
   notes: MelodyNote[]
   pitchData: PitchEntry[]
+  /** pitchData が mutable ref の場合に再描画をトリガーするバージョンカウンタ */
+  pitchVersion?: number
   totalDurationMs: number
   positionMs: number
   bpm?: number
@@ -90,6 +93,8 @@ export const PitchBar = ({
   const positionTick = Math.floor(positionMs / POSITION_TICK_MS) * POSITION_TICK_MS
 
   const svgData = useMemo(() => {
+    // pitchVersion を参照して mutable pitchData の変更を検知する（実際の値は使わない）
+    void pitchVersion
     if (!totalDurationMs || !notes.length) return null
     const windowDurationMs = PITCH_BAR_WINDOW_BARS * msPerBar
     const pos = positionTick
@@ -190,7 +195,7 @@ export const PitchBar = ({
       scaleX,
       scaleY,
     }
-  }, [notes, pitchData, totalDurationMs, positionTick, msPerBar, barOffsetMs])
+  }, [notes, pitchData, totalDurationMs, positionTick, msPerBar, barOffsetMs, pitchVersion])
 
   if (!totalDurationMs || !notes.length) {
     return (

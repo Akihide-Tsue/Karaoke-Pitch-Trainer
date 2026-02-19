@@ -144,6 +144,7 @@ export const usePitchDetection = (options: UsePitchDetectionOptions) => {
       source.connect(recGain)
       recGain.connect(recDest)
 
+      // timeMs はそのまま渡す。レイテンシ補正は practice.tsx の自動キャリブレーションで行う。
       const intervalId = setInterval(() => {
         const timeMs = getPlaybackPositionMs?.() ?? 0
         onPitch(latestMidiRef.current, timeMs)

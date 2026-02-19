@@ -74,7 +74,24 @@ const Practice = () => {
   }, [])
 
   const pitchBufferRef = useRef<PitchEntry[]>([])
-  const flushScheduledRef = useRef(false)
+  /** 練習中のピッチデータを蓄積する mutable ref。
+   *  Jotai atom の setPitchData([...prev, ...batch]) は O(n) コピーが毎フレーム走り、
+   *  Android では配列が大きくなるにつれ GC + re-render 遅延が増大する。
+   *  mutable ref への push は O(1) で済み、version カウンタで PitchBar の再描画をトリガーする。 */
+  const livePitchRef = useRef<PitchEntry[]>([])
+  const [pitchVersion, setPitchVersion] = useState(0)
+
+  /** 自動キャリブレーション: API の inputLatency が不十分な場合（Android 等）、
+   *  最初の数秒間のピッチデータで実測遅延を計算し、timeMs を補正する。
+   *  calibrationSamples に dL(= nowMs - lastPitch.timeMs) を収集し、
+   *  CALIBRATION_COUNT 個溜まったら中央値を確定して以降のデータに適用する。 */
+  const CALIBRATION_COUNT = 50
+  const calibrationSamplesRef = useRef<number[]>([])
+  const calibrationOffsetRef = useRef(0)
+  const calibrationDoneRef = useRef(false)
+  // デバッグ: 最新バッチの生 timeMs と nowMs
+  const debugCalRef = useRef({ rawTimeMs: 0, nowMs: 0, batchLen: 0 })
+
   // playback.getPlaybackPositionMs を ref 経由で pitchDetection に渡す
   const getPlaybackPositionMsRef = useRef<() => number>(() => 0)
 
@@ -84,9 +101,13 @@ const Practice = () => {
   const lastBlobRef = useRef<Blob | null>(null)
   const pitchDataRef = useRef<PitchEntry[]>([])
   const recordingOffsetMsRef = useRef(0)
+  // 練習中は livePitchRef から直接参照し、停止後は Jotai atom から同期
   useEffect(() => {
-    pitchDataRef.current = pitchData
-  }, [pitchData])
+    if (!isPracticing) pitchDataRef.current = pitchData
+  }, [pitchData, isPracticing])
+  useEffect(() => {
+    if (isPracticing) pitchDataRef.current = livePitchRef.current
+  }, [isPracticing])
 
   const getRecordingOffsetMsRef = useRef<() => number>(() => 0)
 
@@ -126,18 +147,10 @@ const Practice = () => {
   const pitchDetection = usePitchDetection({
     onPitch: useCallback(
       (midi: number, timeMs: number) => {
+        // バッファに溜めるだけ。flush は smoothPositionMs の rAF ループ内で行う
         pitchBufferRef.current.push({ timeMs: timeMs - micDelayMs, midi })
-        if (!flushScheduledRef.current) {
-          flushScheduledRef.current = true
-          requestAnimationFrame(() => {
-            const batch = pitchBufferRef.current
-            pitchBufferRef.current = []
-            flushScheduledRef.current = false
-            setPitchData((prev) => [...prev, ...batch])
-          })
-        }
       },
-      [setPitchData, micDelayMs],
+      [micDelayMs],
     ),
     getPlaybackPositionMs: () => getPlaybackPositionMsRef.current(),
     onError: useCallback((err: Error) => {
@@ -190,16 +203,64 @@ const Practice = () => {
   }, [isPracticing, positionMs])
 
   // 再生中は requestAnimationFrame で位置を毎フレーム更新し、PitchBar の位置線をスムーズに動かす
+  // pitchBuffer → livePitchRef への push は O(1)。version カウンタで PitchBar の再描画をトリガーする。
+  const getPlaybackPositionMsFn = useRef(playback.getPlaybackPositionMs)
+  getPlaybackPositionMsFn.current = playback.getPlaybackPositionMs
   useEffect(() => {
     if (!isPracticing) return
+    livePitchRef.current = []
+    setPitchVersion(0)
+    calibrationSamplesRef.current = []
+    calibrationOffsetRef.current = 0
+    calibrationDoneRef.current = false
     let rafId: number
     const tick = () => {
-      setSmoothPositionMs(playback.getPlaybackPositionMs())
+      const nowMs = getPlaybackPositionMsFn.current()
+      setSmoothPositionMs(nowMs)
+      if (pitchBufferRef.current.length > 0) {
+        const batch = pitchBufferRef.current
+        pitchBufferRef.current = []
+        // キャリブレーション確定済みなら offset を適用、未確定なら 0
+        const offset = calibrationOffsetRef.current
+        // デバッグ: 最後のエントリの生 timeMs を記録（offset 適用前）
+        const lastRaw = batch[batch.length - 1].timeMs
+        for (let i = 0; i < batch.length; i++) {
+          batch[i].timeMs -= offset
+          livePitchRef.current.push(batch[i])
+        }
+        debugCalRef.current = { rawTimeMs: lastRaw, nowMs, batchLen: batch.length }
+        // キャリブレーション: 最初の CALIBRATION_COUNT 個の有声ピッチで
+        // nowMs - timeMs の中央値を計算し、以降の timeMs 補正に使う。
+        // 確定前のエントリは補正なしだが、最初の数秒のため実用上問題ない。
+        if (!calibrationDoneRef.current && nowMs > 1000) {
+          for (let i = 0; i < batch.length; i++) {
+            if (batch[i].midi > 0) {
+              calibrationSamplesRef.current.push(nowMs - batch[i].timeMs)
+            }
+          }
+          if (calibrationSamplesRef.current.length >= CALIBRATION_COUNT) {
+            const sorted = calibrationSamplesRef.current.slice().sort((a, b) => a - b)
+            const median = sorted[Math.floor(sorted.length / 2)]
+            calibrationOffsetRef.current = median
+            calibrationDoneRef.current = true
+          }
+        }
+        setPitchVersion((v) => v + 1)
+      }
       rafId = requestAnimationFrame(tick)
     }
     rafId = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafId)
-  }, [isPracticing, playback])
+  }, [isPracticing])
+
+  // 練習終了時に livePitchRef の確定値を Jotai atom に書き戻す（スコア計算・保存用）
+  const prevIsPracticingRef = useRef(false)
+  useEffect(() => {
+    if (prevIsPracticingRef.current && !isPracticing) {
+      setPitchData(livePitchRef.current.slice())
+    }
+    prevIsPracticingRef.current = isPracticing
+  }, [isPracticing, setPitchData])
 
   // キーボードの音量キー（VolumeUp/VolumeDown/VolumeMute）でアプリ音量とUIスライダーを連動
   useEffect(() => {
@@ -413,7 +474,8 @@ const Practice = () => {
           {/* 五線譜風の音程バーコンポーネント */}
           <PitchBar
             notes={melodyData?.notes ?? []}
-            pitchData={pitchData}
+            pitchData={isPracticing ? livePitchRef.current : pitchData}
+            pitchVersion={pitchVersion}
             totalDurationMs={totalDurationMs}
             positionMs={isPracticing ? smoothPositionMs : viewPositionMs}
             bpm={melodyData?.bpm}
@@ -447,6 +509,17 @@ const Practice = () => {
             {((isPracticing ? smoothPositionMs : viewPositionMs) / 1000).toFixed(1)}s /{" "}
             {(totalDurationMs / 1000).toFixed(1)}s
           </Typography>
+          {isPracticing && (
+            <Typography variant="caption" color="error" sx={{ fontSize: "10px" }}>
+              {(() => {
+                const d = debugCalRef.current
+                const rawGap = Math.round(d.nowMs - d.rawTimeMs)
+                const cal = Math.round(calibrationOffsetRef.current)
+                const done = calibrationDoneRef.current ? "Y" : "N"
+                return `raw:${rawGap} cal:${cal}(${done}) b:${d.batchLen}`
+              })()}
+            </Typography>
+          )}
         </Box>
       </Paper>
 
