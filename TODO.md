@@ -53,3 +53,5 @@
 <https://github.com/Akihide-Tsue/Karaoke-Pitch-Trainer/pull/12>
 のPRマージ時点ではAndroidの音程バーの描画タイミングはずれていない。
 1コミットづつ後ろに確認していく！
+
+現在は、add　というコミット（83f21dc26c7a53b83ee2d276239775bcd4b59db0）に戻した
